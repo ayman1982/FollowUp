@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>الجهات (Lookups)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800;900;1000&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css"/>
+</head>
+<body>
+  <header class="topbar">
+    <div class="inner container">
+      <div class="brand">
+        <div class="logo"><img src="assets/logo.png" alt="شعار الوزارة"></div>
+        <div>
+          <h1>وزارة الاستثمار والتجارة الخارجية</h1>
+          <div class="sub">إدارة جهات التحويل / جهات الوارد منها (Lookup)</div>
+        </div>
+      </div>
+      <div class="userbox">
+        <span id="whoName">—</span>
+        <span class="role" id="whoRole">—</span>
+        <button class="btn btn-secondary" id="btnLogout" type="button">تسجيل خروج</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="container shell">
+    <aside class="sidebar">
+      <div class="nav">
+        <a href="incoming.html">📥 الوارد</a>
+        <a href="lookups.html" class="active">🏷️ الجهات (Lookups)</a>
+        <a href="followup.html">🧾 المتابعة</a>
+        <a href="search.html">🔎 البحث</a>
+        <a href="admin.html" id="adminLink">🛡️ إدارة المستخدمين</a>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="card">
+        <div class="hd">
+          <h2>الجهات (Lookup)</h2>
+          <div class="pill">إضافة/تعديل/حذف القيم التي تظهر كـ Combobox في (التحويل إلى) و (الجهة الوارد منها)</div>
+        </div>
+
+        <div class="bd">
+          <div class="tabs">
+            <button class="tab active" id="tabTo" type="button">جهات التحويل إلى</button>
+            <button class="tab" id="tabFrom" type="button">الجهة الوارد منها</button>
+          </div>
+
+          <div class="grid" style="margin-top:12px;">
+            <div class="field full">
+              <label id="lblAdd">إضافة جهة (التحويل إلى)</label>
+              <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <input id="newName" placeholder="اكتب اسم الجهة ثم اضغط إضافة">
+                <button class="btn btn-primary" id="btnAddLookup" type="button">إضافة</button>
+              </div>
+              <div class="hint">ملاحظة: هذه الصفحة مخصصة لمدير النظام فقط.</div>
+            </div>
+          </div>
+
+          <div class="hr"></div>
+
+          <div class="tablewrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:70px;">م</th>
+                  <th>اسم الجهة</th>
+                  <th style="width:260px;">إجراءات</th>
+                </tr>
+              </thead>
+              <tbody id="rows"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal" id="editModal">
+        <div class="panel card">
+          <div class="hd">
+            <h2>تعديل جهة</h2>
+            <button class="btn btn-secondary" id="btnEditClose" type="button">إغلاق</button>
+          </div>
+          <div class="bd">
+            <div class="grid">
+              <div class="field full">
+                <label>اسم الجهة</label>
+                <input id="editName">
+              </div>
+            </div>
+            <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
+              <button class="btn btn-primary" id="btnEditSave" type="button">حفظ</button>
+              <button class="btn btn-danger" id="btnEditDelete" type="button">حذف</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <div class="footer">© وزارة الاستثمار والتجارة الخارجية - إدارة الجهات (Firebase)</div>
+
+<script type="module">
+  import { auth, db, AUTH, FS } from "./assets/firebase.js";
+  import { qs, esc, toast, setActiveNav } from "./assets/ui.js";
+
+  setActiveNav();
+
+  qs("btnLogout")?.addEventListener("click", async ()=>{
+    await AUTH.signOut(auth);
+    location.href="index.html";
+  });
+
+  AUTH.onAuthStateChanged(auth, async (user)=>{
+    if(!user){ location.href="index.html"; return; }
+
+    const snap = await FS.getDoc(FS.doc(db,"users",user.uid));
+    if(!snap.exists()){
+      await AUTH.signOut(auth);
+      location.href="index.html";
+      return;
+    }
+    const me = snap.data();
+
+    if(me.status !== "active"){
+      toast("الحساب قيد المراجعة أو موقوف.");
+      await AUTH.signOut(auth);
+      location.href="index.html";
+      return;
+    }
+
+    qs("whoName").textContent = me.name || me.email || "مستخدم";
+    qs("whoRole").textContent = (me.role==="admin") ? "مدير نظام" : "مستخدم";
+
+    const adminLink = qs("adminLink");
+    if(adminLink) adminLink.style.display = (me.role==="admin") ? "" : "none";
+
+    if(me.role !== "admin"){
+      toast("هذه الصفحة مخصصة لمدير النظام فقط.");
+      location.href="incoming.html";
+      return;
+    }
+
+    window.__ME__ = { uid:user.uid, ...me };
+    init();
+  });
+
+  // UI state
+  let currentType = "to"; // 'to' | 'from'
+  let editingId = null;
+
+  const tabTo = qs("tabTo");
+  const tabFrom = qs("tabFrom");
+  const lblAdd = qs("lblAdd");
+  const newName = qs("newName");
+  const btnAddLookup = qs("btnAddLookup");
+  const rowsEl = qs("rows");
+
+  const editModal = qs("editModal");
+  const btnEditClose = qs("btnEditClose");
+  const btnEditSave = qs("btnEditSave");
+  const btnEditDelete = qs("btnEditDelete");
+  const editName = qs("editName");
+
+  function setTab(type){
+    currentType = type;
+    tabTo.classList.toggle("active", type==="to");
+    tabFrom.classList.toggle("active", type==="from");
+    lblAdd.textContent = type==="to" ? "إضافة جهة (التحويل إلى)" : "إضافة جهة (الجهة الوارد منها)";
+    newName.value = "";
+    load();
+  }
+
+  async function load(){
+    rowsEl.innerHTML = "";
+    try{
+      const qy = FS.query(
+        FS.collection(db,"lookups"),
+        FS.where("type","==",currentType),
+        FS.orderBy("name","asc"),
+        FS.limit(300)
+      );
+      const snaps = await FS.getDocs(qy);
+      const list = snaps.docs.map(d=>({id:d.id, ...d.data()})).filter(x => (x.isActive ?? true));
+      rowsEl.innerHTML = list.map((x,i)=>`
+        <tr>
+          <td>${i+1}</td>
+          <td>${esc(x.name)}</td>
+          <td style="white-space:nowrap;">
+            <button class="btn btn-muted" data-edit="${esc(x.id)}" type="button">تعديل</button>
+          </td>
+        </tr>
+      `).join("");
+
+      document.querySelectorAll("[data-edit]").forEach(b=>{
+        b.addEventListener("click", ()=>{
+          const id = b.getAttribute("data-edit");
+          const item = list.find(z=>z.id===id);
+          openEdit(item);
+        });
+      });
+    }catch(e){
+      toast("تعذر تحميل الجهات. راجع Firestore Rules.");
+    }
+  }
+
+  function openEdit(item){
+    if(!item) return;
+    editingId = item.id;
+    editName.value = item.name || "";
+    editModal.style.display="block";
+  }
+  function closeEdit(){
+    editModal.style.display="none";
+    editingId = null;
+  }
+
+  async function addLookup(){
+    const name = (newName.value||"").trim();
+    if(!name){ toast("اكتب اسم الجهة أولاً."); return; }
+    try{
+      await FS.addDoc(FS.collection(db,"lookups"), {
+        type: currentType,
+        name,
+        isActive: true,
+        createdAt: FS.serverTimestamp(),
+        updatedAt: FS.serverTimestamp()
+      });
+      toast("تمت الإضافة.", true);
+      newName.value="";
+      await load();
+    }catch(e){
+      toast("تعذر الإضافة. راجع Firestore Rules.");
+    }
+  }
+
+  async function saveEdit(){
+    const name = (editName.value||"").trim();
+    if(!editingId) return;
+    if(!name){ toast("اسم الجهة مطلوب."); return; }
+    try{
+      await FS.updateDoc(FS.doc(db,"lookups",editingId), { name, updatedAt: FS.serverTimestamp() });
+      toast("تم الحفظ.", true);
+      closeEdit();
+      await load();
+    }catch(e){
+      toast("تعذر الحفظ.");
+    }
+  }
+
+  async function deleteEdit(){
+    if(!editingId) return;
+    if(!confirm("تأكيد حذف الجهة؟")) return;
+    try{
+      await FS.deleteDoc(FS.doc(db,"lookups",editingId));
+      toast("تم الحذف.", true);
+      closeEdit();
+      await load();
+    }catch(e){
+      toast("تعذر الحذف.");
+    }
+  }
+
+  function init(){
+    tabTo.addEventListener("click", ()=> setTab("to"));
+    tabFrom.addEventListener("click", ()=> setTab("from"));
+    btnAddLookup.addEventListener("click", addLookup);
+    newName.addEventListener("keydown", (e)=>{ if(e.key==="Enter") addLookup(); });
+
+    btnEditClose.addEventListener("click", closeEdit);
+    editModal.addEventListener("click", (e)=>{ if(e.target===editModal) closeEdit(); });
+    btnEditSave.addEventListener("click", saveEdit);
+    btnEditDelete.addEventListener("click", deleteEdit);
+
+    setTab("to");
+  }
+</script>
+
+</body>
+</html>

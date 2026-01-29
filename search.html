@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>البحث</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800;900;1000&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css"/>
+</head>
+<body>
+<header class="topbar">
+    <div class="inner container">
+      <div class="brand">
+        <div class="logo"><img src="assets/logo.png" alt="شعار الوزارة"></div>
+        <div>
+          <h1>وزارة الاستثمار والتجارة الخارجية</h1>
+          <div class="sub">نظام متابعة الوارد والصادر (Firebase + Netlify)</div>
+        </div>
+      </div>
+      <div class="userbox">
+        <span id="whoName">—</span>
+        <span class="role" id="whoRole">—</span>
+        <button class="btn btn-secondary" id="btnLogout" type="button">تسجيل خروج</button>
+      </div>
+    </div>
+  </header>
+  <div class="container shell">
+<aside class="sidebar">
+      <div class="nav">
+        <a href="incoming.html">📥 الوارد</a>
+        <a href="lookups.html" id="lookupsLink">🏷️ الجهات (Lookups)</a>
+        <a href="followup.html">🧾 المتابعة</a>
+        <a href="search.html" class="active">🔎 البحث</a>
+        <a href="admin.html" id="adminLink">🛡️ إدارة المستخدمين</a>
+      </div>
+    </aside>
+    <main class="main">
+
+<div class="card">
+  <div class="hd">
+    <h2>البحث</h2>
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+      <a class="btn btn-secondary" href="incoming.html">الوارد</a>
+    </div>
+  </div>
+  <div class="bd">
+    <div class="grid">
+      <div class="field">
+        <label>رقم الوارد</label>
+        <input id="sNumber" placeholder="مثال: 332301">
+      </div>
+      <div class="field">
+        <label>الموضوع</label>
+        <input id="sSubject" placeholder="كلمات من الموضوع">
+      </div>
+      <div class="field">
+        <label>الجهة الوارد منها</label>
+        <input id="sFrom" placeholder="مثال: مجلس الوزراء">
+      </div>
+      <div class="field full" style="display:flex; gap:10px; flex-wrap:wrap; align-items:end;">
+        <button class="btn btn-primary" id="btnSearch" type="button">🔎 بحث</button>
+        <button class="btn btn-muted" id="btnClear" type="button">↺ تفريغ</button>
+      </div>
+    </div>
+
+    <div class="hr"></div>
+
+    <div class="card">
+      <div class="hd"><h2 style="font-size:14px;">نتائج البحث</h2></div>
+      <div class="bd">
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr>
+                <th>رقم الوارد</th>
+                <th>التاريخ</th>
+                <th>الموضوع</th>
+                <th>الجهة</th>
+                <th>محول إلى</th>
+                <th>إجراء</th>
+              </tr>
+            </thead>
+            <tbody id="sRows"></tbody>
+          </table>
+        </div>
+        <div class="notice" style="margin-top:12px;">
+          البحث هنا يتم بجلب آخر 200 وارد ثم فلترة على المتصفح (لتبسيط القيود).
+        </div>
+      </div>
+    </div>
+
+    <div class="hr"></div>
+
+    <div class="card">
+      <div class="hd"><h2 style="font-size:14px;">تفاصيل الموضوع المختار + إجراءات المتابعة</h2></div>
+      <div class="bd">
+        <div id="detailsEmpty" class="notice">اختر نتيجة من الأعلى لعرض التفاصيل.</div>
+
+        <div id="detailsBox" style="display:none;">
+          <div class="pills" style="margin-bottom:10px;">
+            <span class="pill" id="dNumber">—</span>
+            <span class="pill" id="dDate">—</span>
+            <span class="pill" id="dFrom">—</span>
+          </div>
+
+          <div class="grid">
+            <div class="field full">
+              <label>الموضوع</label>
+              <input id="dSubject" readonly>
+            </div>
+            <div class="field half">
+              <label>الراسل</label>
+              <input id="dSender" readonly>
+            </div>
+            <div class="field half">
+              <label>التحويل إلى</label>
+              <input id="dTo" readonly>
+            </div>
+            <div class="field full">
+              <label>ملاحظات</label>
+              <textarea id="dNotes" readonly></textarea>
+            </div>
+          </div>
+
+          <div class="hr"></div>
+
+          <div class="tablewrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>التاريخ/الوقت</th>
+                  <th>الإجراء</th>
+                  <th>التفاصيل</th>
+                  <th>موجه إلى</th>
+                  <th>بواسطة</th>
+                </tr>
+              </thead>
+              <tbody id="dFollowRows"></tbody>
+            </table>
+          </div>
+
+          <div style="margin-top:12px;">
+            <button class="btn btn-muted" id="btnOpenFollow" type="button">فتح شاشة المتابعة</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+    </main>
+  </div>
+  <div class="footer">© وزارة الاستثمار والتجارة الخارجية - نسخة Firebase للعرض والتشغيل</div>
+<script type="module">
+  import { auth, db, AUTH, FS } from "./assets/firebase.js";
+  import { qs, toast, setActiveNav } from "./assets/ui.js";
+
+  setActiveNav();
+
+  const logout = qs("btnLogout");
+  logout?.addEventListener("click", async ()=>{
+    await AUTH.signOut(auth);
+    location.href = "index.html";
+  });
+
+  AUTH.onAuthStateChanged(auth, async (user)=>{
+    if(!user){ location.href="index.html"; return; }
+
+    const snap = await FS.getDoc(FS.doc(db,"users",user.uid));
+    if(!snap.exists()){
+      await AUTH.signOut(auth);
+      location.href="index.html";
+      return;
+    }
+    const me = snap.data();
+    if(me.status !== "active"){
+      toast("الحساب قيد المراجعة أو موقوف.");
+      await AUTH.signOut(auth);
+      location.href="index.html";
+      return;
+    }
+
+    qs("whoName").textContent = me.name || me.email || "مستخدم";
+    qs("whoRole").textContent = (me.role==="admin") ? "مدير نظام" : "مستخدم";
+    const adminLink = qs("adminLink");
+    if(adminLink) adminLink.style.display = (me.role==="admin") ? "" : "none";
+    const lookupsLink = qs("lookupsLink");
+    if(lookupsLink) lookupsLink.style.display = (me.role==="admin") ? "" : "none";
+    window.__ME__ = { uid: user.uid, ...me };
+  });
+</script>
+
+<script type="module">
+  import { auth, db, AUTH, FS } from "./assets/firebase.js";
+  import { qs, esc, toast } from "./assets/ui.js";
+
+  const sRows = qs("sRows");
+  let all = [];
+  let selectedId = null;
+
+  function renderRows(list){
+    sRows.innerHTML = list.map(x=>`
+      <tr>
+        <td><b>${esc(x.number)}</b></td>
+        <td>${esc(x.date)}</td>
+        <td>${esc(x.subject)}</td>
+        <td>${esc(x.fromOrg)}</td>
+        <td>${esc(x.to)}</td>
+        <td><button class="btn btn-muted" data-open="${esc(x.id)}" type="button">عرض</button></td>
+      </tr>
+    `).join("");
+
+    document.querySelectorAll("[data-open]").forEach(b=>{
+      b.addEventListener("click", ()=>{
+        const id = b.getAttribute("data-open");
+        openDetails(id);
+      });
+    });
+  }
+
+  async function loadAll(){
+    const qy = FS.query(FS.collection(db,"incoming"), FS.orderBy("createdAt","desc"), FS.limit(200));
+    const snaps = await FS.getDocs(qy);
+    all = snaps.docs.map(d=>({id:d.id, ...d.data()}));
+    renderRows(all);
+  }
+
+  function applySearch(){
+    const n = (qs("sNumber").value||"").trim().toLowerCase();
+    const s = (qs("sSubject").value||"").trim().toLowerCase();
+    const f = (qs("sFrom").value||"").trim().toLowerCase();
+
+    const list = all.filter(x=>{
+      const okN = !n || (x.number||"").toString().toLowerCase().includes(n);
+      const okS = !s || (x.subject||"").toString().toLowerCase().includes(s);
+      const okF = !f || (x.fromOrg||"").toString().toLowerCase().includes(f);
+      return okN && okS && okF;
+    });
+    renderRows(list);
+  }
+
+  function tsToText(ts){
+    try{
+      if(!ts) return "";
+      if(typeof ts === "string") return ts;
+      if(ts.toDate) return ts.toDate().toLocaleString("ar-EG");
+      return "";
+    }catch{ return ""; }
+  }
+
+  async function openDetails(id){
+    selectedId = id;
+    const snap = await FS.getDoc(FS.doc(db,"incoming",id));
+    if(!snap.exists()){ toast("العنصر غير موجود"); return; }
+    const x = snap.data();
+
+    qs("detailsEmpty").style.display = "none";
+    qs("detailsBox").style.display = "";
+
+    qs("dNumber").textContent = "رقم الوارد: " + (x.number||"—");
+    qs("dDate").textContent = "تاريخ الورود: " + (x.date||"—");
+    qs("dFrom").textContent = "الجهة: " + (x.fromOrg||"—");
+
+    qs("dSubject").value = x.subject||"";
+    qs("dSender").value = x.sender||"";
+    qs("dTo").value = x.to||"";
+    qs("dNotes").value = x.notes||"";
+
+    const qy = FS.query(FS.collection(db,"incoming",id,"followups"), FS.orderBy("ts","desc"), FS.limit(100));
+    const snaps = await FS.getDocs(qy);
+    const list = snaps.docs.map(d=>({id:d.id, ...d.data()}));
+
+    qs("dFollowRows").innerHTML = list.map(a=>`
+      <tr>
+        <td>${esc(tsToText(a.ts))}</td>
+        <td><span class="badge blue">${esc(a.type||"")}</span></td>
+        <td>${esc(a.details||"")}</td>
+        <td>${esc(a.to||"")}</td>
+        <td>${esc(a.byName||"")}</td>
+      </tr>
+    `).join("");
+  }
+
+  qs("btnSearch").addEventListener("click", applySearch);
+  qs("btnClear").addEventListener("click", ()=>{
+    qs("sNumber").value=""; qs("sSubject").value=""; qs("sFrom").value="";
+    renderRows(all);
+  });
+
+  qs("btnOpenFollow").addEventListener("click", ()=>{
+    if(!selectedId) return;
+    sessionStorage.setItem("selectedIncomingId", selectedId);
+    location.href = "followup.html";
+  });
+
+  AUTH.onAuthStateChanged(auth, async (user)=>{
+    if(!user) return;
+    setTimeout(loadAll, 500);
+  });
+</script>
+
+</body>
+</html>
