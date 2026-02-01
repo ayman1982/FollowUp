@@ -1,358 +1,0 @@
-<!doctype html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>الوارد</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800;900;1000&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/styles.css"/>
-</head>
-<body>
-<header class="topbar">
-    <div class="inner container">
-      <div class="brand">
-        <div class="logo"><img src="assets/logo.png" alt="شعار الوزارة"></div>
-        <div>
-          <h1>وزارة الاستثمار والتجارة الخارجية</h1>
-          <div class="sub">نظام متابعة الوارد والصادر (Firebase + Netlify)</div>
-        </div>
-      </div>
-      <div class="userbox">
-        <span id="whoName">—</span>
-        <span class="role" id="whoRole">—</span>
-        <button class="btn btn-secondary" id="btnLogout" type="button">تسجيل خروج</button>
-      </div>
-    </div>
-  </header>
-  <div class="container shell">
-<aside class="sidebar">
-      <div class="nav">
-        <a href="incoming.html" class="active">📥 الوارد</a>
-        <a href="lookups.html" id="lookupsLink">🏷️ الجهات (Lookups)</a>
-        <a href="followup.html">🧾 المتابعة</a>
-        <a href="search.html">🔎 البحث</a>
-        <a href="admin.html" id="adminLink">🛡️ إدارة المستخدمين</a>
-      </div>
-    </aside>
-    <main class="main">
-
-      <div class="kpis">
-        <div class="kpi"><div class="n" id="kTotal">0</div><div class="t">إجمالي الوارد</div></div>
-        <div class="kpi"><div class="n" id="kThisWeek">0</div><div class="t">آخر 7 أيام</div></div>
-        <div class="kpi"><div class="n" id="kToLegal">0</div><div class="t">محول للإدارة القانونية</div></div>
-        <div class="kpi"><div class="n" id="kToMinister">0</div><div class="t">محول لمكتب معالي الوزير</div></div>
-      </div>
-
-      <div class="card">
-        <div class="hd">
-          <h2>الوارد</h2>
-          <div style="display:flex; gap:10px; flex-wrap:wrap;">
-            <button class="btn btn-muted" type="button" id="btnRefresh">↺ تحديث</button>
-            <button class="btn btn-primary" type="button" id="btnAdd">➕ إضافة وارد</button>
-          </div>
-        </div>
-
-        <div class="bd">
-          <div class="grid">
-            <div class="field full">
-              <label>بحث سريع</label>
-              <input id="q" placeholder="رقم الوارد / الموضوع / الجهة / الراسل / التحويل إلى">
-            </div>
-          </div>
-
-          <div class="tablewrap" style="margin-top:12px;">
-            <table>
-              <thead>
-                <tr>
-                  <th>رقم الوارد</th>
-                  <th>تاريخ الورود</th>
-                  <th>الموضوع</th>
-                  <th>الجهة الوارد منها</th>
-                  <th>الراسل</th>
-                  <th>التحويل إلى</th>
-                  <th>ملاحظات</th>
-                  <th>إجراءات</th>
-                </tr>
-              </thead>
-              <tbody id="rows"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <div class="modal" id="modal">
-        <div class="panel card">
-          <div class="hd">
-            <h2 id="modalTitle">إضافة/تعديل وارد</h2>
-            <button class="btn btn-secondary" id="btnClose" type="button">إغلاق</button>
-          </div>
-          <div class="bd">
-            <div class="grid">
-              <div class="field">
-                <label>رقم الوارد</label>
-                <input id="fNumber" placeholder="332301">
-              </div>
-              <div class="field">
-                <label>تاريخ الورود</label>
-                <input id="fDate" type="date">
-              </div>
-              <div class="field">
-                <label>التحويل إلى</label>
-                <select id="fTo">
-                  <option>الإدارة القانونية</option>
-                  <option>مكتب معالي الوزير</option>
-                  <option>الإدارة الفنية</option>
-                  <option>إدارة المتابعة</option>
-                  <option>—</option>
-                </select>
-              </div>
-              <div class="field full">
-                <label>الموضوع</label>
-                <input id="fSubject" placeholder="عنوان الموضوع">
-              </div>
-              <div class="field">
-                <label>الجهة الوارد منها</label>
-                <select id="fFrom"></select>
-              </div>
-              <div class="field">
-                <label>الراسل</label>
-                <input id="fSender" placeholder="اسم الراسل">
-              </div>
-              <div class="field full">
-                <label>ملاحظات</label>
-                <textarea id="fNotes" placeholder="ملاحظات..."></textarea>
-              </div>
-            </div>
-            <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
-              <button class="btn btn-primary" id="btnSave" type="button">حفظ</button>
-              <button class="btn btn-danger" id="btnDelete" type="button" style="display:none;">حذف</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-    </main>
-  </div>
-  <div class="footer">© وزارة الاستثمار والتجارة الخارجية - نسخة Firebase للعرض والتشغيل</div>
-<script type="module">
-  import { auth, db, AUTH, FS } from "./assets/firebase.js";
-  import { qs, toast, setActiveNav } from "./assets/ui.js";
-
-  setActiveNav();
-
-  const logout = qs("btnLogout");
-  logout?.addEventListener("click", async ()=>{
-    await AUTH.signOut(auth);
-    location.href = "index.html";
-  });
-
-  AUTH.onAuthStateChanged(auth, async (user)=>{
-    if(!user){ location.href="index.html"; return; }
-
-    const snap = await FS.getDoc(FS.doc(db,"users",user.uid));
-    if(!snap.exists()){
-      await AUTH.signOut(auth);
-      location.href="index.html";
-      return;
-    }
-    const me = snap.data();
-    if(me.status !== "active"){
-      toast("الحساب قيد المراجعة أو موقوف.");
-      await AUTH.signOut(auth);
-      location.href="index.html";
-      return;
-    }
-
-    qs("whoName").textContent = me.name || me.email || "مستخدم";
-    qs("whoRole").textContent = (me.role==="admin") ? "مدير نظام" : "مستخدم";
-    const adminLink = qs("adminLink");
-    if(adminLink) adminLink.style.display = (me.role==="admin") ? "" : "none";
-    const lookupsLink = qs("lookupsLink");
-    if(lookupsLink) lookupsLink.style.display = (me.role==="admin") ? "" : "none";
-    window.__ME__ = { uid: user.uid, ...me };
-  });
-</script>
-
-<script type="module">
-  import { auth, db, AUTH, FS } from "./assets/firebase.js";
-  import { qs, esc, toast } from "./assets/ui.js";
-  import { fillSelectWithLookups } from "./assets/lookups.js";
-
-  const rowsEl = qs("rows");
-  const qEl = qs("q");
-  const btnAdd = qs("btnAdd");
-  const btnRefresh = qs("btnRefresh");
-
-  const modal = qs("modal");
-  const modalTitle = qs("modalTitle");
-  const btnClose = qs("btnClose");
-  const btnSave = qs("btnSave");
-  const btnDelete = qs("btnDelete");
-
-  const fNumber = qs("fNumber");
-  const fDate = qs("fDate");
-  const fSubject = qs("fSubject");
-  const fFrom = qs("fFrom");
-  const fSender = qs("fSender");
-  const fTo = qs("fTo");
-  const fNotes = qs("fNotes");
-
-  let all = [];
-  let editingId = null;
-
-  async function loadLookupOptions(){
-    try{
-      await fillSelectWithLookups(fTo, "to", { includeDash:true });
-      await fillSelectWithLookups(fFrom, "from", { includeDash:false });
-    }catch(e){
-      // ignore if rules deny
-    }
-  }
-
-
-  async function openModal(item){
-    modal.style.display = "block";
-    await loadLookupOptions();
-    if(item){
-      editingId = item.id;
-      modalTitle.textContent = "تعديل وارد";
-      fNumber.value = item.number || "";
-      fDate.value = item.date || "";
-      fSubject.value = item.subject || "";
-      fFrom.value = item.fromOrg || "";
-      fSender.value = item.sender || "";
-      fTo.value = item.to || "—";
-      fNotes.value = item.notes || "";
-      btnDelete.style.display = "";
-    }else{
-      editingId = null;
-      modalTitle.textContent = "إضافة وارد";
-      fNumber.value = "";
-      fDate.value = "";
-      fSubject.value = "";
-      fFrom.value = "";
-      fSender.value = "";
-      fTo.value = "—";
-      fNotes.value = "";
-      btnDelete.style.display = "none";
-    }
-  }
-  function closeModal(){ modal.style.display = "none"; }
-
-  function computeKPIs(list){
-    qs("kTotal").textContent = list.length;
-    const now = new Date();
-    const seven = new Date(now.getTime() - 7*24*60*60*1000);
-    qs("kThisWeek").textContent = list.filter(x => x.date && new Date(x.date) >= seven).length;
-    qs("kToLegal").textContent = list.filter(x => x.to === "الإدارة القانونية").length;
-    qs("kToMinister").textContent = list.filter(x => x.to === "مكتب معالي الوزير").length;
-  }
-
-  function render(){
-    const q = (qEl.value||"").trim().toLowerCase();
-    const list = q ? all.filter(x =>
-      [x.number,x.date,x.subject,x.fromOrg,x.sender,x.to,x.notes].some(v => (v||"").toString().toLowerCase().includes(q))
-    ) : all;
-
-    computeKPIs(all);
-
-    rowsEl.innerHTML = list.map(x=>`
-      <tr>
-        <td><b>${esc(x.number)}</b></td>
-        <td>${esc(x.date)}</td>
-        <td>${esc(x.subject)}</td>
-        <td>${esc(x.fromOrg)}</td>
-        <td>${esc(x.sender)}</td>
-        <td>${esc(x.to)}</td>
-        <td>${esc(x.notes)}</td>
-        <td style="white-space:nowrap;">
-          <button class="btn btn-muted" data-edit="${esc(x.id)}" type="button">تعديل</button>
-          <button class="btn btn-secondary" data-follow="${esc(x.id)}" type="button">متابعة</button>
-        </td>
-      </tr>
-    `).join("");
-
-    document.querySelectorAll("[data-edit]").forEach(b=>{
-      b.addEventListener("click", ()=>{
-        const id = b.getAttribute("data-edit");
-        const item = all.find(z=>z.id===id);
-        openModal(item);
-      });
-    });
-    document.querySelectorAll("[data-follow]").forEach(b=>{
-      b.addEventListener("click", ()=>{
-        const id = b.getAttribute("data-follow");
-        sessionStorage.setItem("selectedIncomingId", id);
-        location.href = "followup.html";
-      });
-    });
-  }
-
-  async function loadIncoming(){
-    const qy = FS.query(FS.collection(db,"incoming"), FS.orderBy("createdAt","desc"), FS.limit(200));
-    const snaps = await FS.getDocs(qy);
-    all = snaps.docs.map(d => ({ id:d.id, ...d.data() }));
-    render();
-  }
-
-  btnAdd.addEventListener("click", ()=> openModal(null));
-  btnClose.addEventListener("click", closeModal);
-  modal.addEventListener("click", (e)=>{ if(e.target===modal) closeModal(); });
-  btnRefresh.addEventListener("click", loadIncoming);
-  qEl.addEventListener("input", render);
-
-  btnSave.addEventListener("click", async ()=>{
-    const number = fNumber.value.trim();
-    const date = fDate.value;
-    const subject = fSubject.value.trim();
-    const fromOrg = fFrom.value.trim();
-    const sender = fSender.value.trim();
-    const to = fTo.value;
-    const notes = fNotes.value.trim();
-
-    if(!number || !date || !subject){
-      toast("يرجى إدخال رقم الوارد وتاريخ الورود والموضوع.");
-      return;
-    }
-
-    const base = { number, date, subject, fromOrg, sender, to, notes, updatedAt: FS.serverTimestamp() };
-
-    try{
-      if(editingId){
-        await FS.updateDoc(FS.doc(db,"incoming",editingId), base);
-        toast("تم حفظ التعديل.", true);
-      }else{
-        const me = window.__ME__ || {};
-        await FS.addDoc(FS.collection(db,"incoming"), { ...base, createdAt: FS.serverTimestamp(), createdBy: me.uid || null });
-        toast("تم إضافة الوارد.", true);
-      }
-      closeModal();
-      await loadIncoming();
-    }catch(e){
-      toast("تعذر الحفظ. راجع صلاحيات Firestore Rules.");
-    }
-  });
-
-  btnDelete.addEventListener("click", async ()=>{
-    if(!editingId) return;
-    if(!confirm("تأكيد حذف الوارد؟")) return;
-    try{
-      await FS.deleteDoc(FS.doc(db,"incoming",editingId));
-      toast("تم حذف الوارد.", true);
-      closeModal();
-      await loadIncoming();
-    }catch(e){
-      toast("تعذر الحذف.");
-    }
-  });
-
-  AUTH.onAuthStateChanged(auth, async (user)=>{
-    if(!user) return;
-    setTimeout(loadIncoming, 500);
-  });
-</script>
-
-</body>
-</html>
