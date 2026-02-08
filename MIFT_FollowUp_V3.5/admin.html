@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>إدارة المستخدمين</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800;900;1000&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css"/>
+</head>
+<body>
+<header class="topbar">
+    <div class="inner container">
+      <div class="brand">
+        <div class="logo"><img src="assets/logo.png" alt="شعار الوزارة"></div>
+        <div>
+          <h1>وزارة الاستثمار والتجارة الخارجية</h1>
+          <div class="sub">الادارة المركزية لشئون مكتب الوزير</div>
+          <div class="sub2">برنامج متابعة الصادر والوارد</div>
+        </div>
+      </div>
+      <div class="userbox">
+        <span id="whoName">—</span>
+        <span class="role" id="whoRole">—</span>
+        <button class="btn btn-secondary" id="btnLogout" type="button">تسجيل خروج</button>
+      </div>
+    </div>
+  </header>
+  <div class="container shell">
+<aside class="sidebar">
+      <div class="nav">
+        <a href="incoming.html">📥 الوارد</a>
+        <a href="lookups.html" id="lookupsLink">🏷️ الجهات (Lookups)</a>
+        <a href="followup.html">🧾 المتابعة</a>
+        <a href="search.html">🔎 البحث</a>
+        <a href="admin.html" class="active" id="adminLink">🛡️ إدارة المستخدمين</a>
+      </div>
+    </aside>
+    <main class="main">
+
+<div class="card">
+  <div class="hd">
+    <h2>إدارة المستخدمين (مدير النظام)</h2>
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+      <button class="btn btn-muted" id="btnReloadUsers" type="button">↺ تحديث</button>
+    </div>
+  </div>
+  <div class="bd">
+    <div class="notice">
+      صلاحيات المدير: <b>قبول</b> المستخدمين الجدد (Pending) أو <b>إيقاف</b> الحسابات.
+    </div>
+
+    <div class="tablewrap" style="margin-top:12px;">
+      <table>
+        <thead>
+          <tr>
+            <th>الاسم</th>
+            <th>البريد</th>
+            <th>الصلاحية</th>
+            <th>الحالة</th>
+            <th>إجراءات</th>
+          </tr>
+        </thead>
+        <tbody id="usersRows"></tbody>
+      </table>
+    </div>
+</div>
+
+    </main>
+  </div>
+  <div class="footer">جميع الحقوق محفوظة 2026 - وحدة ابحاث وتطوير تكنولوجيا المعلومات</div>
+<script type="module">
+  import { auth, db, AUTH, FS } from "./assets/firebase.js";
+  import { qs, toast, setActiveNav } from "./assets/ui.js";
+
+  setActiveNav();
+
+  const logout = qs("btnLogout");
+  logout?.addEventListener("click", async ()=>{
+    await AUTH.signOut(auth);
+    location.href = "index.html";
+  });
+
+  AUTH.onAuthStateChanged(auth, async (user)=>{
+    if(!user){ location.href="index.html"; return; }
+
+    const snap = await FS.getDoc(FS.doc(db,"users",user.uid));
+    if(!snap.exists()){
+      await AUTH.signOut(auth);
+      location.href="index.html";
+      return;
+    }
+    const me = snap.data();
+    if(me.status !== "active"){
+      toast("الحساب قيد المراجعة أو موقوف.");
+      await AUTH.signOut(auth);
+      location.href="index.html";
+      return;
+    }
+
+    qs("whoName").textContent = me.name || me.email || "مستخدم";
+    qs("whoRole").textContent = (me.role==="admin") ? "مدير نظام" : "مستخدم";
+    const adminLink = qs("adminLink");
+    if(adminLink) adminLink.style.display = (me.role==="admin") ? "" : "none";
+    window.__ME__ = { uid: user.uid, ...me };
+  });
+</script>
+
+<script type="module">
+  import { auth, db, AUTH, FS } from "./assets/firebase.js";
+  import { qs, esc, toast } from "./assets/ui.js";
+
+  const rows = qs("usersRows");
+  const btnReload = qs("btnReloadUsers");
+
+  function badgeRole(role){
+    return role==="admin" ? '<span class="badge blue">مدير نظام</span>' : '<span class="badge">مستخدم</span>';
+  }
+  function badgeStatus(s){
+    if(s==="active") return '<span class="badge green">مفعل</span>';
+    if(s==="pending") return '<span class="badge">معلّق</span>';
+    if(s==="disabled" || s==="blocked") return '<span class="badge red">موقوف</span>';
+    return '<span class="badge red">موقوف</span>';
+  }
+
+  async function loadUsers(){
+    rows.innerHTML = "";
+    let docs = [];
+    try{
+      const qy = FS.query(FS.collection(db,"users"), FS.orderBy("createdAt","desc"), FS.limit(200));
+      const snaps = await FS.getDocs(qy);
+      docs = snaps.docs;
+    }catch(e){
+      // Fallback if createdAt missing / index / rules
+      try{
+        const snaps2 = await FS.getDocs(FS.collection(db,"users"));
+        docs = snaps2.docs;
+      }catch(e2){
+        console.error(e2);
+        toast("تعذر تحميل المستخدمين (راجع Rules).");
+        return;
+      }
+    }
+
+    // sort client-side if needed
+    docs.sort((a,b)=>{
+      const da = a.data()?.createdAt?.toMillis ? a.data().createdAt.toMillis() : 0;
+      const dbb = b.data()?.createdAt?.toMillis ? b.data().createdAt.toMillis() : 0;
+      return dbb - da;
+    });
+
+    docs.forEach(s=>{
+      const u = s.data();
+      rows.insertAdjacentHTML("beforeend", `
+        <tr>
+          <td>${esc(u.name||"-")}</td>
+          <td>${esc(u.email||"-")}</td>
+          <td>${badgeRole(u.role||"user")}</td>
+          <td>${badgeStatus(u.status||"pending")}</td>
+          <td style="white-space:nowrap;">
+            <button class="btn btn-primary" data-act="approve" data-id="${s.id}" type="button">قبول</button>
+            <button class="btn btn-secondary" data-act="block" data-id="${s.id}" type="button">إيقاف</button>
+</td>
+        </tr>
+      `);
+    });
+
+    document.querySelectorAll("[data-act]").forEach(b=>{
+      b.addEventListener("click", async ()=>{
+        const id = b.getAttribute("data-id");
+        const act = b.getAttribute("data-act");
+        try{
+          await FS.updateDoc(FS.doc(db,"users",id), { status: act==="approve" ? "active" : "disabled" });
+          toast("تم تحديث الحالة.", true);
+          await loadUsers();
+        }catch(e){
+          toast("تعذر التحديث (راجع Rules).");
+        }
+      });
+    });
+  }
+
+  btnReload.addEventListener("click", loadUsers);
+
+  AUTH.onAuthStateChanged(auth, async (user)=>{
+    if(!user) return;
+
+
+    const meSnap = await FS.getDoc(FS.doc(db,"users",user.uid));
+    if(!meSnap.exists()){ location.href="index.html"; return; }
+    const me = meSnap.data();
+    if(me.role!=="admin" || me.status!=="active"){
+      toast("غير مصرح. سيتم تحويلك للوارد.");
+      location.href="incoming.html";
+      return;
+    }
+    await loadUsers();
+  });
+</script>
+
+</body>
+</html>
