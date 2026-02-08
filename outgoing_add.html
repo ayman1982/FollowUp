@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>إضافة صادر</title>
+  <link rel="icon" href="assets/logo.png" />
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="inner container">
+      <div class="brand">
+        <div class="logo"><img src="assets/logo.png" alt="شعار الوزارة"></div>
+        <div>
+          <h1>وزارة الاستثمار والتجارة الخارجية</h1>
+          <div class="sub">الادارة المركزية لشئون مكتب الوزير</div>
+          <div class="sub2">برنامج متابعة الصادر والوارد</div>
+        </div>
+      </div>
+      <div class="userbox">
+        <span id="meName">—</span>
+        <span class="role" id="meRole">—</span>
+        <button class="btn btn-secondary" id="btnLogout" type="button">تسجيل خروج</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="container shell">
+    <div class="card">
+      <div class="hd">
+        <h2>إضافة صادر</h2>
+        <div class="actions">
+          <button class="btn btn-secondary" id="btnBack" type="button">رجوع</button>
+          <button class="btn btn-primary" id="btnSave" type="button">حفظ</button>
+        </div>
+      </div>
+      <div class="bd">
+        <div class="grid">
+          <div class="field">
+            <label>رقم الصادر</label>
+            <input id="oNumber" placeholder="332301">
+          </div>
+          <div class="field">
+            <label>تاريخ التصدير</label>
+            <input id="oDate" type="date">
+          </div>
+          <div class="field">
+            <label>التحويل إلى</label>
+            <select id="oTo">
+              <option>—</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>الموضوع</label>
+            <input id="oSubject" placeholder="موضوع الصادر">
+          </div>
+          <div class="field">
+            <label>الجهة الوارد منها</label>
+            <input id="oFrom" disabled>
+          </div>
+          <div class="field">
+            <label>المرسل إليه</label>
+            <input id="oRecipient" placeholder="اسم/جهة المرسل إليه">
+          </div>
+          <div class="field span2">
+            <label>ملاحظات</label>
+            <textarea id="oNotes" rows="3" placeholder="—"></textarea>
+          </div>
+        </div>
+
+        <div class="note small" id="linkNote" style="margin-top:10px;">
+          سيتم ربط هذا الصادر بالوارد المفتوح من شاشة المتابعة.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { auth, db, AUTH, FS } from "./assets/firebase.js";
+    import { qs, toast } from "./assets/ui.js";
+    import { fillSelectWithLookups } from "./assets/lookups.js";
+
+    let incomingId = null;
+    let incomingDoc = null;
+
+    function getIncomingId(){
+      const u = new URL(location.href);
+      return u.searchParams.get("id") || sessionStorage.getItem("selectedIncomingId");
+    }
+
+    async function loadIncoming(){
+      incomingId = getIncomingId();
+      if(!incomingId){
+        toast("لم يتم تحديد وارد للربط.", false);
+        return;
+      }
+      try{
+        const snap = await FS.getDoc(FS.doc(db, "incoming", incomingId));
+        if(!snap.exists()){
+          toast("تعذر العثور على الوارد.", false);
+          return;
+        }
+        incomingDoc = snap.data() || {};
+        qs("oFrom").value = incomingDoc.fromOrg || "";
+      }catch(e){
+        toast("تعذر تحميل بيانات الوارد.", false);
+      }
+    }
+
+    async function saveOutgoing(){
+      if(!incomingId){ toast("لم يتم تحديد وارد للربط.", false); return; }
+
+      const number = qs("oNumber").value.trim();
+      const exportDate = qs("oDate").value;
+      const to = qs("oTo").value.trim();
+      const subject = qs("oSubject").value.trim();
+      const fromOrg = qs("oFrom").value.trim();
+      const recipient = qs("oRecipient").value.trim();
+      const notes = qs("oNotes").value.trim();
+
+      if(!number || !exportDate || !subject){
+        toast("يرجى إدخال (رقم الصادر / تاريخ التصدير / الموضوع).", false);
+        return;
+      }
+
+      // منع تكرار رقم الصادر
+      try{
+        const q = FS.query(FS.collection(db,"outgoing"), FS.where("number","==",number), FS.limit(1));
+        const existsSnap = await FS.getDocs(q);
+        if(!existsSnap.empty){
+          toast("رقم الصادر مكرر. لم يتم الحفظ.", false);
+          return;
+        }
+      }catch(e){
+        // لو القواعد تمنع الاستعلام، سيظهر تحذير واضح عند الحفظ لاحقاً
+      }
+
+      const me = window.__ME__ || {};
+      try{
+        // إنشاء الصادر (مرتبط بالوارد)
+        await FS.addDoc(FS.collection(db,"outgoing"),{
+          number,
+          exportDate,
+          to,
+          subject,
+          fromOrg,
+          recipient,
+          notes,
+          incomingId,
+          incomingNumber: incomingDoc?.number || null,
+          createdBy: me.uid || null,
+          createdAt: FS.serverTimestamp()
+        });
+
+        // إضافة سجل متابعة تلقائي "رد بخطاب" مرتبط بنفس الوارد
+        await FS.addDoc(FS.collection(db,"incoming",incomingId,"followups"),{
+          type: "رد بخطاب",
+          to: to || "",
+          details: `تم إنشاء صادر رقم ${number}${recipient ? " إلى " + recipient : ""}.`,
+          byUid: me.uid || null,
+          byName: me.name || me.email || "مستخدم",
+          ts: FS.serverTimestamp()
+        });
+
+        toast("تم حفظ الصادر وإضافة المتابعة.", true);
+        // رجوع لشاشة المتابعة
+        sessionStorage.setItem("selectedIncomingId", incomingId);
+        window.location.href = `followup.html?id=${encodeURIComponent(incomingId)}`;
+      }catch(e){
+        toast("تعذر حفظ الصادر. تحقق من Rules.", false);
+      }
+    }
+
+    qs("btnBack").addEventListener("click", ()=>{
+      const id = getIncomingId();
+      if(id){
+        sessionStorage.setItem("selectedIncomingId", id);
+        window.location.href = `followup.html?id=${encodeURIComponent(id)}`;
+      }else{
+        window.location.href = "incoming.html";
+      }
+    });
+
+    qs("btnSave").addEventListener("click", saveOutgoing);
+
+    qs("btnLogout").addEventListener("click", async ()=>{ await AUTH.signOut(auth); location.href="index.html"; });
+
+    AUTH.onAuthStateChanged(auth, async (user)=>{
+      if(!user){ location.href="index.html"; return; }
+      const snap = await FS.getDoc(FS.doc(db,"users",user.uid));
+      if(!snap.exists()){
+        await AUTH.signOut(auth);
+        location.href="index.html";
+        return;
+      }
+      const me = snap.data();
+      if(me.status !== "active"){
+        toast("الحساب قيد المراجعة أو موقوف.");
+        await AUTH.signOut(auth);
+        location.href="index.html";
+        return;
+      }
+      window.__ME__ = { uid: user.uid, ...me };
+      qs("meName").textContent = me.name || me.email || "—";
+      qs("meRole").textContent = (me.role==="admin") ? "مدير نظام" : "مستخدم";
+      await fillSelectWithLookups(qs("oTo"), "to");
+      await loadIncoming();
+    });
+  </script>
+</body>
+</html>
