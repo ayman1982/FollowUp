@@ -1,591 +1,0 @@
-<!doctype html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>المتابعة</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800;900;1000&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/styles.css"/>
-</head>
-<body>
-<header class="topbar">
-    <div class="inner container">
-      <div class="brand">
-        <div class="logo"><img src="assets/logo.png" alt="شعار الوزارة"></div>
-        <div>
-          <h1>وزارة الاستثمار والتجارة الخارجية</h1>
-          <div class="sub">الادارة المركزية لشئون مكتب الوزير</div>
-          <div class="sub2">برنامج متابعة الصادر والوارد</div>
-        </div>
-      </div>
-      <div class="userbox">
-        <span id="whoName">—</span>
-        <span class="role" id="whoRole">—</span>
-        <button class="btn btn-secondary" id="btnLogout" type="button">تسجيل خروج</button>
-      </div>
-    </div>
-  </header>
-  <div class="container shell">
-<aside class="sidebar">
-      <div class="nav">
-        <a href="incoming.html">📥 الوارد</a>
-        <a href="lookups.html" id="lookupsLink">🏷️ الجهات (Lookups)</a>
-        <a href="followup.html" class="active">🧾 المتابعة</a>
-        <a href="search.html">🔎 البحث</a>
-        <a href="admin.html" id="adminLink">🛡️ إدارة المستخدمين</a>
-      </div>
-    </aside>
-    <main class="main">
-
-<div class="card">
-  <div class="hd">
-    <h2>المتابعة</h2>
-    <div style="display:flex; gap:10px; flex-wrap:wrap;">
-      <a class="btn btn-secondary" href="incoming.html">رجوع للوارد</a>
-      <a class="btn btn-secondary" href="search.html">البحث</a>
-    </div>
-  </div>
-  <div class="bd">
-
-    <div class="notice" id="noPickBanner" style="display:none; margin-bottom:12px;">
-      لم يتم اختيار موضوع للمتابعة. يمكنك فتح المتابعة من زر <b>متابعة</b> داخل صفحة <b>الوارد</b>.
-      <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
-        <a class="btn btn-primary" href="incoming.html">الذهاب إلى الوارد</a>
-      </div>
-    </div>
-    <div class="pills" style="margin-bottom:12px;">
-      <span class="pill" id="pNumber">رقم الوارد: —</span>
-      <span class="pill" id="pFrom">الجهة: —</span>
-      <span class="pill" id="pTo">محول إلى: —</span>
-    </div>
-
-    <div class="card">
-      <div class="hd"><h2 style="font-size:14px;">بيانات الموضوع</h2></div>
-      <div class="bd">
-        <div class="grid">
-          <div class="field full">
-            <label>الموضوع</label>
-            <input id="vSubject" readonly>
-          </div>
-          <div class="field half">
-            <label>تاريخ الورود</label>
-            <input id="vDate" readonly>
-          </div>
-          <div class="field half">
-            <label>الراسل</label>
-            <input id="vSender" readonly>
-          </div>
-          <div class="field full">
-            <label>ملاحظات</label>
-            <textarea id="vNotes" readonly></textarea>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="hr"></div>
-
-    <div class="card">
-      <div class="hd"><h2 style="font-size:14px;">إضافة إجراء متابعة</h2></div>
-      <div class="bd">
-        <div class="notice" id="closedBanner" style="display:none; margin-bottom:12px;">
-          تم حفظ الموضوع وإغلاق المتابعة. يمكنك استعراض خطوات المتابعة فقط.
-          <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
-            <button class="btn btn-muted" id="btnReopen" type="button" style="display:none;">فتح للمتابعة</button>
-          </div>
-        </div>
-        <div class="grid">
-          <div class="field half">
-            <label>نوع الإجراء</label>
-            <select id="fType">
-              <option>رد بخطاب</option>
-              <option>تحويل</option>
-              <option>تذكير</option>
-              <option>إعادة توجيه</option>
-              <option>حفظ</option>
-              <option>إحاطة</option>
-            </select>
-          </div>
-          <div class="field half">
-            <label>موجه إلى / جهة التحويل</label>
-            <select id="fTo"></select>
-          </div>
-          <div class="field half" id="remDaysField" style="display:none;">
-            <label>عدد الأيام</label>
-            <input id="fRemDays" type="number" min="1" placeholder="مثال: 5">
-          </div>
-          <div class="field full">
-            <label>تفاصيل الإجراء</label>
-            <textarea id="fDetails" placeholder="تفاصيل المتابعة..."></textarea>
-          </div>
-          <div class="field full">
-            <button class="btn btn-primary" id="btnAddFollow" type="button">حفظ الإجراء</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="hr"></div>
-
-    <div class="card">
-      <div class="hd">
-        <h2 style="font-size:14px;">سجل المتابعة</h2>
-        <div style="display:flex; gap:10px; flex-wrap:wrap;">
-          <button class="btn btn-muted" type="button" id="btnToggleOutgoing">📤 الصادر المرتبط</button>
-        </div>
-      </div>
-      <div class="bd">
-        <div class="tablewrap">
-          <table>
-            <thead>
-              <tr>
-                <th>التاريخ/الوقت</th>
-                <th>الإجراء</th>
-                <th>التفاصيل</th>
-                <th>موجه إلى</th>
-                <th>بواسطة</th>
-              </tr>
-            </thead>
-            <tbody id="fRows"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <div class="hr"></div>
-
-    <div class="card" id="outgoingCard" style="display:none;">
-      <div class="hd">
-        <h2 style="font-size:14px;">الصادر المرتبط</h2>
-        <div style="display:flex; gap:10px; flex-wrap:wrap;">
-          <button class="btn btn-muted" type="button" id="btnRefreshOutgoing">↺ تحديث</button>
-        </div>
-      </div>
-      <div class="bd">
-        <div class="tablewrap">
-          <table>
-            <thead>
-              <tr>
-                <th>رقم الصادر</th>
-                <th>تاريخ التصدير</th>
-                <th>التحويل إلى</th>
-                <th>الموضوع</th>
-                <th>المرسل إليه</th>
-                <th>ملاحظات</th>
-              </tr>
-            </thead>
-            <tbody id="oRows"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-
-  </div>
-</div>
-
-    </main>
-  </div>
-  <div class="footer">جميع الحقوق محفوظة 2026 - وحدة ابحاث وتطوير تكنولوجيا المعلومات</div>
-<script type="module">
-  import { auth, db, AUTH, FS } from "./assets/firebase.js";
-  import { qs, toast, setActiveNav } from "./assets/ui.js";
-
-  setActiveNav();
-
-  const logout = qs("btnLogout");
-  logout?.addEventListener("click", async ()=>{
-    await AUTH.signOut(auth);
-    location.href = "index.html";
-  });
-
-
-
-  AUTH.onAuthStateChanged(auth, async (user)=>{
-    if(!user){ location.href="index.html"; return; }
-
-    const snap = await FS.getDoc(FS.doc(db,"users",user.uid));
-    if(!snap.exists()){
-      await AUTH.signOut(auth);
-      location.href="index.html";
-      return;
-    }
-    const me = snap.data();
-    if(me.status !== "active"){
-      toast("الحساب قيد المراجعة أو موقوف.");
-      await AUTH.signOut(auth);
-      location.href="index.html";
-      return;
-    }
-
-    qs("whoName").textContent = me.name || me.email || "مستخدم";
-    qs("whoRole").textContent = (me.role==="admin") ? "مدير نظام" : "مستخدم";
-    const adminLink = qs("adminLink");
-    if(adminLink) adminLink.style.display = (me.role==="admin") ? "" : "none";
-    const lookupsLink = qs("lookupsLink");
-    if(lookupsLink) lookupsLink.style.display = (me.role==="admin") ? "" : "none";
-    window.__ME__ = { uid: user.uid, ...me };
-  });
-</script>
-
-<script type="module">
-  import { auth, db, AUTH, FS } from "./assets/firebase.js";
-  import { qs, esc, toast } from "./assets/ui.js";
-  import { fillSelectWithLookups } from "./assets/lookups.js";
-
-  const incomingId = sessionStorage.getItem("selectedIncomingId") || new URL(location.href).searchParams.get("id");
-
-  const fTypeEl = qs("fType");
-  const fToEl = qs("fTo");
-  const fDetailsEl = qs("fDetails");
-  const remDaysField = qs("remDaysField");
-  const fRemDaysEl = qs("fRemDays");
-  const btnAddFollow = qs("btnAddFollow");
-  const closedBanner = qs("closedBanner");
-  const btnReopen = qs("btnReopen");
-
-  let incomingData = null;
-  let isClosed = false;
-
-
-  async function loadToLookupOptions(){
-    try{
-      await fillSelectWithLookups(qs("fTo"), "to", { includeDash:true });
-    }catch(e){
-      // لو الصلاحيات/المسار غير متاح، نتركها فارغة
-    }
-  }
-
-  function normalizeToValue(v){
-    const x = (v ?? "").toString().trim();
-    return (x === "—") ? "" : x;
-  }
-
-  function ymd(d){
-    try{
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth()+1).padStart(2,'0');
-      const dd = String(d.getDate()).padStart(2,'0');
-      return `${yyyy}-${mm}-${dd}`;
-    }catch{ return ""; }
-  }
-
-  function setFormEnabled(enabled){
-    if(fTypeEl) fTypeEl.disabled = !enabled;
-    if(fToEl) fToEl.disabled = !enabled;
-    if(fDetailsEl) fDetailsEl.disabled = !enabled;
-    if(fRemDaysEl) fRemDaysEl.disabled = !enabled;
-    if(btnAddFollow) btnAddFollow.disabled = !enabled;
-  }
-
-  function applyTypeBehavior(){
-    if(!fTypeEl) return;
-    const t = fTypeEl.value;
-    // افتراضيًا: الكل متاح
-    if(fToEl){
-      fToEl.disabled = false;
-    }
-
-    // حقل عدد الأيام يظهر فقط عند "تذكير"
-    if(remDaysField){
-      remDaysField.style.display = (t === "تذكير") ? "" : "none";
-    }
-    if(fRemDaysEl && t !== "تذكير"){
-      fRemDaysEl.value = "";
-    }
-
-    // "إحاطة" و "حفظ" لا يحتاجان جهة تحويل
-    if(t === "إحاطة" || t === "حفظ"){
-      if(fToEl){
-        fToEl.value = "—";
-        fToEl.disabled = true;
-      }
-    }
-
-    // عند إغلاق الموضوع (حفظ) لا يُسمح بإضافة إجراءات إلا للأدمن بعد فتحه
-    if(isClosed){
-      setFormEnabled(false);
-    }
-  }
-
-  // فتح الموضوع للمتابعة (للأدمن فقط)
-  if(btnReopen){
-    btnReopen.addEventListener("click", async ()=>{
-      const me = window.__ME__ || {};
-      if(me.role !== "admin") return;
-      if(!incomingId) return;
-      try{
-        await FS.updateDoc(FS.doc(db,"incoming",incomingId),{
-          isClosed: false,
-          reopenedAt: FS.serverTimestamp(),
-          reopenedByUid: me.uid || null,
-          reopenedByName: me.name || me.email || "مدير نظام"
-        });
-        toast("تم فتح الموضوع للمتابعة.", true);
-        await loadIncoming();
-      }catch(e){
-        toast("تعذر فتح الموضوع. تحقق من Rules.");
-      }
-    });
-  }
-
-  // تفاعل نوع الإجراء
-  if(fTypeEl){
-    fTypeEl.addEventListener("change", ()=>{
-      applyTypeBehavior();
-    });
-  }
-
-  // Populate combobox after auth is ready
-  AUTH.onAuthStateChanged(auth, async (user)=>{
-    if(user) await loadToLookupOptions();
-  });
-  const fRows = qs("fRows");
-
-  const oCard = qs("outgoingCard");
-  const oRows = qs("oRows");
-  let outgoingLoaded = false;
-
-  async function loadOutgoing(){
-    if(!incomingId){ return; }
-    if(oRows) oRows.innerHTML = "";
-    try{
-      const q = FS.query(
-        FS.collection(db, "outgoing"),
-        FS.where("incomingId", "==", incomingId),
-        FS.limit(200)
-      );
-      const snap = await FS.getDocs(q);
-      const items = [];
-      snap.forEach(d=>{
-        const x = d.data() || {};
-        items.push({ id: d.id, ...x });
-      });
-
-      items.sort((a,b)=> String(b.exportDate||"").localeCompare(String(a.exportDate||"")));
-
-      if(!items.length){
-        if(oRows){
-          oRows.innerHTML = `<tr><td colspan="6" style="text-align:center; opacity:.7;">لا يوجد صادر مرتبط بهذا الوارد.</td></tr>`;
-        }
-        outgoingLoaded = true;
-        return;
-      }
-
-      if(oRows){
-        oRows.innerHTML = items.map(x=>`
-          <tr>
-            <td>${esc(x.number || "")}</td>
-            <td>${esc(x.exportDate || "")}</td>
-            <td>${esc(x.to || "")}</td>
-            <td>${esc(x.subject || "")}</td>
-            <td>${esc(x.recipient || "")}</td>
-            <td>${esc(x.notes || "")}</td>
-          </tr>
-        `).join("");
-      }
-      outgoingLoaded = true;
-    }catch(e){
-      toast("تعذر تحميل الصادر المرتبط. تحقق من الصلاحيات.", false);
-    }
-  }
-
-
-
-  // الصادر المرتبط (عرض/إخفاء)
-  const btnToggleOutgoing = qs("btnToggleOutgoing");
-  const btnRefreshOutgoing = qs("btnRefreshOutgoing");
-
-  if(btnToggleOutgoing){
-    btnToggleOutgoing.addEventListener("click", async ()=>{
-      if(!oCard) return;
-      const willShow = (oCard.style.display === "none" || !oCard.style.display);
-      oCard.style.display = willShow ? "block" : "none";
-      if(willShow && !outgoingLoaded){
-        await loadOutgoing();
-      }
-    });
-  }
-
-  if(btnRefreshOutgoing){
-    btnRefreshOutgoing.addEventListener("click", async ()=>{
-      outgoingLoaded = false;
-      await loadOutgoing();
-    });
-  }
-
-  async function loadIncoming(){
-    if(!incomingId){
-      const b = qs("noPickBanner");
-      if(b) b.style.display = "block";
-      toast("اختر موضوع من صفحة الوارد أولاً.");
-      return;
-    }
-    const snap = await FS.getDoc(FS.doc(db,"incoming",incomingId));
-    if(!snap.exists()){
-      const b = qs("noPickBanner");
-      if(b) b.style.display = "block";
-      toast("الموضوع غير موجود.");
-      return;
-    }
-    const x = snap.data();
-    incomingData = x;
-    isClosed = (x && x.isClosed === true);
-
-    // حالة الإغلاق (حفظ)
-    if(closedBanner){
-      closedBanner.style.display = isClosed ? "block" : "none";
-    }
-    const me = window.__ME__ || {};
-    const canReopen = (me.role === "admin");
-    if(btnReopen){
-      btnReopen.style.display = (isClosed && canReopen) ? "" : "none";
-    }
-
-    if(isClosed){
-      // منع الإضافة للجميع (يُفتح فقط بواسطة الأدمن)
-      setFormEnabled(false);
-    }else{
-      setFormEnabled(true);
-    }
-
-    applyTypeBehavior();
-    qs("pNumber").textContent = "رقم الوارد: " + (x.number || "—");
-    qs("pFrom").textContent = "الجهة: " + (x.fromOrg || "—");
-    qs("pTo").textContent = "محول إلى: " + (x.to || "—");
-
-    qs("vSubject").value = x.subject || "";
-    qs("vDate").value = x.date || "";
-    qs("vSender").value = x.sender || "";
-    qs("vNotes").value = x.notes || "";
-  }
-
-  function tsToText(ts){
-    try{
-      if(!ts) return "";
-      if(typeof ts === "string") return ts;
-      if(ts.toDate) return ts.toDate().toLocaleString("ar-EG");
-      return "";
-    }catch{ return ""; }
-  }
-
-  async function loadFollowups(){
-    const qy = FS.query(FS.collection(db,"incoming",incomingId,"followups"), FS.orderBy("ts","desc"), FS.limit(200));
-    const snaps = await FS.getDocs(qy);
-    const list = snaps.docs.map(d=>({id:d.id, ...d.data()}));
-    fRows.innerHTML = list.map(a=>`
-      <tr>
-        <td>${esc(tsToText(a.ts))}</td>
-        <td><span class="badge blue">${esc(a.type||"")}</span></td>
-        <td>${esc(a.details||"")}</td>
-        <td>${esc(a.to||"")}</td>
-        <td>${esc(a.byName||"")}</td>
-      </tr>
-    `).join("");
-  }
-
-  btnAddFollow?.addEventListener("click", async ()=>{
-    const me = window.__ME__ || {};
-    if(isClosed){
-      toast("تم حفظ الموضوع وإغلاق المتابعة. لا يمكن إضافة إجراءات إلا بعد فتح الموضوع بواسطة مدير النظام.");
-      return;
-    }
-
-    const type = (fTypeEl?.value || "").trim();
-    if(type === "رد بخطاب"){
-      // فتح شاشة إضافة صادر مرتبطة بالوارد الحالي
-      sessionStorage.setItem("selectedIncomingId", incomingId);
-      window.location.href = `outgoing_add.html?id=${encodeURIComponent(incomingId)}`;
-      return;
-    }
-
-    const to = normalizeToValue(fToEl?.value);
-    const details = (fDetailsEl?.value || "").trim();
-
-    // تذكير: إدخال عدد أيام وحساب تاريخ التذكير
-    let reminderDays = null;
-    let reminderDue = "";
-    if(type === "تذكير"){
-      const v = (fRemDaysEl?.value || "").toString().trim();
-      const n = Number(v);
-      if(!v || !Number.isFinite(n) || n <= 0){
-        toast("يرجى إدخال عدد الأيام للتذكير.");
-        return;
-      }
-      reminderDays = Math.floor(n);
-      const base = new Date();
-      const due = new Date(base.getFullYear(), base.getMonth(), base.getDate() + reminderDays);
-      reminderDue = ymd(due);
-    }
-
-    if(!details){
-      toast("يرجى إدخال تفاصيل الإجراء.");
-      return;
-    }
-
-    // قواعد حسب نوع الإجراء
-    if(type === "إعادة توجيه" && !to){
-      toast("يرجى اختيار جهة من (موجه إلى / جهة التحويل).");
-      return;
-    }
-
-    // "إحاطة" لا تستخدم جهة تحويل
-    const finalTo = (type === "إحاطة" || type === "حفظ") ? "" : to;
-
-    try{
-      // إضافة سجل المتابعة
-      await FS.addDoc(FS.collection(db,"incoming",incomingId,"followups"),{
-        type,
-        to: finalTo,
-        details,
-        reminderDays: reminderDays ?? null,
-        reminderDue: reminderDue || "",
-        byUid: me.uid || null,
-        byName: me.name || me.email || "مستخدم",
-        ts: FS.serverTimestamp()
-      });
-
-      // عند تسجيل "تذكير" يتم حفظ تاريخ التذكير على الوارد لسهولة إظهاره في شاشة الوارد
-      if(type === "تذكير" && reminderDue){
-        await FS.updateDoc(FS.doc(db,"incoming",incomingId),{
-          reminderDue,
-          reminderDays: reminderDays ?? null,
-          reminderSetAt: FS.serverTimestamp(),
-          reminderSetByUid: me.uid || null,
-          reminderSetByName: me.name || me.email || "مستخدم"
-        });
-      }
-
-      // "حفظ" => إغلاق المتابعة على الموضوع
-      if(type === "حفظ"){
-        await FS.updateDoc(FS.doc(db,"incoming",incomingId),{
-          isClosed: true,
-          closedAt: FS.serverTimestamp(),
-          closedByUid: me.uid || null,
-          closedByName: me.name || me.email || "مستخدم"
-        });
-      }
-
-      if(fDetailsEl) fDetailsEl.value = "";
-      if(fRemDaysEl) fRemDaysEl.value = "";
-      toast("تمت إضافة المتابعة.", true);
-      await loadFollowups();
-      await loadIncoming();
-    }catch(e){
-      toast("تعذر إضافة المتابعة. تحقق من Rules.");
-    }
-  });
-
-  AUTH.onAuthStateChanged(auth, async (user)=>{
-    if(!user) return;
-    setTimeout(async ()=>{
-      await loadIncoming();
-      await loadFollowups();
-    }, 500);
-  });
-</script>
-
-</body>
-</html>
