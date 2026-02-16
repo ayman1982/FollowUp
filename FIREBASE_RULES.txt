@@ -1,0 +1,46 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function me() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function isActive() { return signedIn() && me().status == "active"; }
+    function isAdmin() { return signedIn() && me().role == "admin" && me().status == "active"; }
+
+    match /users/{uid} {
+      allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      allow create: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      allow update: if isAdmin()
+        || (signedIn() && request.auth.uid == uid
+            && request.resource.data.diff(resource.data).changedKeys().hasOnly(["name"]));
+      allow delete: if isAdmin();
+    }
+
+    match /incoming/{id} {
+      allow read, create: if isActive();
+      // السماح بالإغلاق (حفظ) لجميع المستخدمين النشطين، لكن منع إعادة الفتح إلا للأدمن
+      allow update, delete: if isAdmin() || (isActive() && !(resource.data.isClosed == true && request.resource.data.isClosed != true));
+
+      match /followups/{fid} {
+        allow read, create: if isActive();
+        allow update, delete: if isAdmin();
+      }
+    }
+  }
+}
+
+
+[LOOKUPS]
+- Collection: lookups
+  - type: "to" (جهات التحويل إلى) أو "from" (الجهة الوارد منها)
+  - name: اسم الجهة
+  - isActive: true/false
+
+
+// OUTGOING (الصادر)
+match /outgoing/{docId  allow delete: if isAdmin();
+} {
+  allow read: if isActive();
+  allow create: if isActive();
+  allow update, delete: if isAdmin();
+}
