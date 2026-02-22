@@ -1,0 +1,596 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>التقارير</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800;900;1000&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css"/>
+</head>
+<body>
+<header class="topbar">
+    <div class="inner container">
+      <div class="brand">
+        <div class="logo"><img src="assets/logo.png" alt="شعار الوزارة"></div>
+        <div>
+          <h1>وزارة الاستثمار والتجارة الخارجية</h1>
+          <div class="sub">الادارة المركزية لشئون مكتب الوزير</div>
+          <div class="sub2">برنامج متابعة الصادر والوارد</div>
+        </div>
+      </div>
+      <div class="userbox">
+        <span id="whoName">—</span>
+        <span class="role" id="whoRole">—</span>
+        <button class="btn btn-secondary" id="btnLogout" type="button">تسجيل خروج</button>
+      </div>
+    </div>
+  </header>
+  <div class="container shell">
+<aside class="sidebar">
+      <div class="nav">
+        <a href="incoming.html">📥 الوارد</a>
+        <a href="lookups.html" id="lookupsLink">🏷️ الجهات (Lookups)</a>
+        <a href="followup.html">🧾 المتابعة</a>
+        <a href="search.html" class="active">🔎 البحث</a>
+        <a href="admin.html" id="adminLink" style="display:none">🛡️ إدارة المستخدمين</a>
+        <a href="backup.html" id="backupLink" style="display:none">🗄️ النسخة الاحتياطية</a>
+      </div>
+    </aside>
+    
+<main class="main">
+  <div class="card">
+    <div class="card-header">
+      <h2>التقارير</h2>
+      <div class="actions">
+        <button class="btn" id="btnRun" type="button">تشغيل التقرير</button>
+        <button class="btn btn-secondary" id="btnExcel" type="button">تصدير Excel</button>
+        <button class="btn btn-secondary" id="btnPdf" type="button">تصدير PDF</button>
+      </div>
+    </div>
+
+    <div class="grid-2" style="gap:12px; margin-top:10px">
+      <div>
+        <label class="lbl">نوع التقرير</label>
+        <select class="inp" id="repType">
+          <option value="incoming">تقرير الوارد</option>
+          <option value="outgoing">تقرير الصادر</option>
+          <option value="followups">تقرير المتابعات</option>
+          <option value="summary">تقرير مجمع (إحصائيات)</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="lbl">نطاق التاريخ</label>
+        <div class="row" style="gap:8px">
+          <input class="inp" id="dateFrom" type="date" />
+          <input class="inp" id="dateTo" type="date" />
+        </div>
+      </div>
+
+      <div>
+        <label class="lbl">رقم (وارد/صادر)</label>
+        <input class="inp" id="numFilter" placeholder="مثال: 123" />
+      </div>
+
+      <div>
+        <label class="lbl">بحث نصي (الموضوع/الجهة/المرسل/التحويل)</label>
+        <input class="inp" id="textFilter" placeholder="اكتب كلمة للبحث..." />
+      </div>
+
+      <div>
+        <label class="lbl">حالة الوارد</label>
+        <select class="inp" id="statusFilter">
+          <option value="">الكل</option>
+          <option value="open">مفتوح</option>
+          <option value="closed">مغلق</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="lbl">الحد الأقصى للنتائج</label>
+        <select class="inp" id="limitRows">
+          <option value="200">200</option>
+          <option value="500">500</option>
+          <option value="1000">1000</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="hr"></div>
+
+    <div class="note" id="repNote">يمكنك تشغيل تقرير مجمع أو البحث بتصفية محددة ثم تصدير النتائج إلى PDF أو Excel.</div>
+
+    <div class="hr"></div>
+
+    <div style="overflow:auto">
+      <table class="tbl" id="repTable">
+        <thead id="repHead"></thead>
+        <tbody id="repBody"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+  </div>
+  <div class="footer">جميع الحقوق محفوظة 2026 - وحدة ابحاث وتطوير تكنولوجيا المعلومات</div>
+
+<script type="module">
+  import { auth, db, AUTH, FS } from "./assets/firebase.js";
+  import { qs, toast, setActiveNav } from "./assets/ui.js";
+
+  setActiveNav();
+
+  const repType = qs("repType");
+  const dateFrom = qs("dateFrom");
+  const dateTo = qs("dateTo");
+  const numFilter = qs("numFilter");
+  const textFilter = qs("textFilter");
+  const statusFilter = qs("statusFilter");
+  const limitRows = qs("limitRows");
+
+  const btnRun = qs("btnRun");
+  const btnExcel = qs("btnExcel");
+  const btnPdf = qs("btnPdf");
+
+  const repHead = qs("repHead");
+  const repBody = qs("repBody");
+  const repNote = qs("repNote");
+
+  let currentCols = [];
+  let currentRows = [];
+
+  function setWho(me){
+    const whoName = qs("whoName");
+    const whoRole = qs("whoRole");
+    if(whoName) whoName.textContent = me.name || me.email || "مستخدم";
+    if(whoRole) whoRole.textContent = (me.role==="admin") ? "مدير نظام" : "مستخدم";
+
+    const adminLink = qs("adminLink");
+    if(adminLink) adminLink.style.display = (me.role==="admin") ? "" : "none";
+
+    const backupLink = qs("backupLink");
+    if(backupLink) backupLink.style.display = (me.role==="admin") ? "" : "none";
+    const lookupsLink = qs("lookupsLink");
+    if(lookupsLink) lookupsLink.style.display = (me.role==="admin" || me.role==="followup_manager") ? "" : "none";
+    const reportsLink = qs("reportsLink");
+    if(reportsLink) reportsLink.style.display = ""; // متاح للجميع
+  }
+
+  function toDate(ts){
+    if(!ts) return null;
+    if(typeof ts === "object" && ts.seconds) return new Date(ts.seconds*1000);
+    if(typeof ts === "string") {
+      const d = new Date(ts);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    return null;
+  }
+
+  function dateInRange(d, fromStr, toStr){
+    if(!d) return false;
+    const from = fromStr ? new Date(fromStr + "T00:00:00") : null;
+    const to = toStr ? new Date(toStr + "T23:59:59") : null;
+    if(from && d < from) return false;
+    if(to && d > to) return false;
+    return true;
+  }
+
+  function includesText(obj, q){
+    if(!q) return true;
+    const s = JSON.stringify(obj || "").toLowerCase();
+    return s.includes(q.toLowerCase());
+  }
+
+  function renderTable(cols, rows){
+    currentCols = cols;
+    currentRows = rows;
+
+    repHead.innerHTML = `<tr>${cols.map(c=>`<th>${c}</th>`).join("")}</tr>`;
+    repBody.innerHTML = rows.map(r=>{
+      return `<tr>${cols.map(c=>`<td>${(r[c] ?? "")}</td>`).join("")}</tr>`;
+    }).join("");
+
+    repNote.textContent = `عدد النتائج: ${rows.length}`;
+  }
+
+  async function loadIncoming(limit){
+    const snap = await FS.getDocs(FS.query(FS.collection(db,"incoming"), FS.limit(limit)));
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  }
+
+  async function loadOutgoing(limit){
+    const snap = await FS.getDocs(FS.query(FS.collection(db,"outgoing"), FS.limit(limit)));
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  }
+
+  async function loadFollowups(limit){
+    const incSnap = await FS.getDocs(FS.query(FS.collection(db,"incoming"), FS.limit(limit)));
+    const out = [];
+    for(const inc of incSnap.docs){
+      const inId = inc.id;
+      const incData = inc.data() || {};
+      const inNumber = incData.number || "";
+      const fuSnap = await FS.getDocs(FS.collection(db,"incoming",inId,"followups"));
+      for(const fu of fuSnap.docs){
+        out.push({
+          incomingId: inId,
+          incomingNumber: inNumber,
+          incomingDate: incData.date || "",
+          followupId: fu.id,
+          ...fu.data()
+        });
+      }
+    }
+    return out;
+  }
+
+  function exportExcel(){
+    if(!currentRows.length){
+      toast("لا توجد بيانات لتصديرها.");
+      return;
+    }
+    const ws = XLSX.utils.json_to_sheet(currentRows, { header: currentCols });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "report");
+    XLSX.writeFile(wb, `report_${repType.value}_${new Date().toISOString().slice(0,10)}.xlsx`);
+  }
+
+  async function exportPdf(){
+    if(!currentRows.length){
+      toast("لا توجد بيانات لتصديرها.");
+      return;
+    }
+
+    const title = `تقرير: ${repType.options[repType.selectedIndex].text}`;
+
+    // تحويل اللوجو إلى Base64 لضمان ظهوره داخل نافذة الطباعة
+    let logoDataUrl = "";
+    try{
+      const res = await fetch("./assets/logo.png", { cache: "no-store" });
+      const blob = await res.blob();
+      logoDataUrl = await new Promise((resolve)=>{
+        const r = new FileReader();
+        r.onload = ()=>resolve(r.result);
+        r.readAsDataURL(blob);
+      });
+    }catch(e){
+      logoDataUrl = "";
+    }
+
+    const style = `
+      <style>
+        @page { size: A4 landscape; margin: 0; }
+        body { margin:0; direction: rtl; text-align: right; font-family: 'Cairo', Tahoma, Arial, sans-serif; }
+        .pdf-header{
+          background: linear-gradient(180deg, #0b3b7a 0%, #0a336a 100%);
+          color:#fff;
+          padding: 14mm 14mm 10mm 14mm;
+          display:flex;
+          align-items:center;
+          justify-content: space-between;
+        }
+        .pdf-header .text{ flex: 1; padding-right: 8mm; }
+        .pdf-header .t1{ font-size: 20px; font-weight: 800; line-height: 1.1; }
+        .pdf-header .t2{ font-size: 13px; font-weight: 600; opacity: .95; margin-top: 4px; }
+        .pdf-header .t3{ font-size: 15px; font-weight: 800; margin-top: 6px; }
+        .pdf-header .logo{
+          width: 56px; height: 56px;
+          border-radius: 10px;
+          overflow:hidden;
+          display:flex; align-items:center; justify-content:center;
+        }
+        .pdf-header img{ width: 100%; height: 100%; object-fit: contain; display:block; }
+        .content { padding: 10mm 14mm 12mm 14mm; }
+        h1 { font-size: 16px; margin: 0 0 10px 0; }
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        th, td { border: 1px solid #bbb; padding: 6px 8px; vertical-align: top; word-wrap: break-word; font-size: 11px; }
+        th { background: #e9eef5; font-weight: 700; text-align:right; }
+        td { text-align:right; }
+        .meta{ margin-bottom:8px; font-size:12px; color:#111; }
+      </style>
+    `;
+
+    const headHtml = `<tr>${currentCols.map(c=>`<th>${c}</th>`).join("")}</tr>`;
+    const bodyHtml = currentRows.map(r=>{
+      return `<tr>${currentCols.map(c=>`<td>${String(r[c] ?? "")}</td>`).join("")}</tr>`;
+    }).join("");
+
+    const headerHtml = `
+      <div class="pdf-header">
+        <div class="text">
+          <div class="t1">وزارة الاستثمار والتجارة الخارجية</div>
+          <div class="t2">الادارة المركزية لشئون مكتب الوزير</div>
+          <div class="t3">برنامج متابعة الصادر والوارد</div>
+        </div>
+        <div class="logo">${logoDataUrl ? `<img src="${logoDataUrl}" alt="logo" />` : ""}</div>
+      </div>
+    `;
+
+    const w = window.open("", "_blank");
+    w.document.open();
+    w.document.write(`<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  ${style}
+  <title>${title}</title>
+</head>
+<body>
+  ${headerHtml}
+  <div class="content">
+    <h1>${title}</h1>
+    <div class="meta">عدد النتائج: ${currentRows.length}</div>
+    <table>
+      <thead>${headHtml}</thead>
+      <tbody>${bodyHtml}</tbody>
+    </table>
+  </div>
+</body>
+</html>`);
+    w.document.close();
+
+    w.onload = () => {
+      setTimeout(()=>{ w.focus(); w.print(); }, 200);
+    };
+  }
+
+  async function runReport(){
+    repBody.innerHTML = "";
+    repHead.innerHTML = "";
+    repNote.textContent = "جارٍ تحميل البيانات...";
+
+    const limit = parseInt(limitRows.value || "200", 10);
+    const df = dateFrom.value;
+    const dt = dateTo.value;
+    const nf = (numFilter.value || "").trim();
+    const tf = (textFilter.value || "").trim();
+    const st = statusFilter.value;
+
+    if(repType.value === "summary"){
+      const inc = await loadIncoming(limit);
+      const out = await loadOutgoing(limit);
+
+      const today = new Date();
+      const pad=n=>String(n).padStart(2,"0");
+      const todayStr = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
+
+      const incomingToday = inc.filter(x => (x.date || "").startsWith(todayStr)).length;
+
+      const closed = inc.filter(x => x.closed === true || x.status==="closed").length;
+      const open = inc.length - closed;
+
+      const cols = ["البند","القيمة"];
+      const rows = [
+        {"البند":"إجمالي الوارد (ضمن الحد)","القيمة": inc.length},
+        {"البند":"إجمالي الصادر (ضمن الحد)","القيمة": out.length},
+        {"البند":"عدد الوارد اليوم","القيمة": incomingToday},
+        {"البند":"الوارد المفتوح","القيمة": open},
+        {"البند":"الوارد المغلق","القيمة": closed},
+      ];
+      renderTable(cols, rows);
+      return;
+    }
+
+    if(repType.value === "incoming"){
+      let inc = await loadIncoming(limit);
+      inc = inc.filter(x=>{
+        const d = toDate(x.date) || toDate(x.createdAt);
+        const okDate = (df||dt) ? dateInRange(d, df, dt) : true;
+        const okNum = nf ? String(x.number||"") === nf : true;
+        const okText = tf ? (includesText({subject:x.subject, fromOrg:x.fromOrg, to:x.to, sender:x.sender}, tf)) : true;
+        const okStatus = st ? (st==="closed" ? (x.closed===true || x.status==="closed") : !(x.closed===true || x.status==="closed")) : true;
+        return okDate && okNum && okText && okStatus;
+      });
+
+      const cols = ["رقم الوارد","تاريخ الوارد","الموضوع","الجهة الوارد منها","المرسل","التحويل إلى","الحالة"];
+      const rows = inc.map(x=>({
+        "رقم الوارد": x.number||"",
+        "تاريخ الوارد": x.date||"",
+        "الموضوع": x.subject||"",
+        "الجهة الوارد منها": x.fromOrg||"",
+        "المرسل": x.sender||"",
+        "التحويل إلى": x.to||"",
+        "الحالة": (x.closed===true || x.status==="closed") ? "مغلق" : "مفتوح"
+      }));
+      renderTable(cols, rows);
+      return;
+    }
+
+    if(repType.value === "outgoing"){
+      let out = await loadOutgoing(limit);
+      out = out.filter(x=>{
+        const d = toDate(x.exportDate) || toDate(x.createdAt);
+        const okDate = (df||dt) ? dateInRange(d, df, dt) : true;
+        const okNum = nf ? String(x.number||"") === nf : true;
+        const okText = tf ? (includesText({subject:x.subject, to:x.to, recipient:x.recipient, fromOrg:x.fromOrg}, tf)) : true;
+        return okDate && okNum && okText;
+      });
+
+      const cols = ["رقم الصادر","تاريخ التصدير","التحويل إلى","الموضوع","الجهة الوارد منها","المرسل إليه","ملاحظات","رقم وارد مرتبط"];
+      const rows = out.map(x=>({
+        "رقم الصادر": x.number||"",
+        "تاريخ التصدير": x.exportDate||"",
+        "التحويل إلى": x.to||"",
+        "الموضوع": x.subject||"",
+        "الجهة الوارد منها": x.fromOrg||"",
+        "المرسل إليه": x.recipient||"",
+        "ملاحظات": x.notes||"",
+        "رقم وارد مرتبط": x.incomingNumber || x.incomingId || ""
+      }));
+      renderTable(cols, rows);
+      return;
+    }
+
+    if(repType.value === "followups"){
+      let fu = await loadFollowups(limit);
+
+      fu = fu.filter(x=>{
+        const d = toDate(x.ts) || toDate(x.createdAt);
+        const okDate = (df||dt) ? dateInRange(d, df, dt) : true;
+        const okNum = nf ? (String(x.incomingNumber||"") === nf) : true;
+        const okText = tf ? (includesText({type:x.type, details:x.details, to:x.to, byName:x.byName}, tf)) : true;
+        return okDate && okNum && okText;
+      });
+
+      const cols = ["رقم الوارد","نوع الإجراء","التفاصيل","موجه إلى","بواسطة","تاريخ الإجراء"];
+      const rows = fu.map(x=>({
+        "رقم الوارد": x.incomingNumber || "",
+        "نوع الإجراء": x.type||"",
+        "التفاصيل": x.details||"",
+        "موجه إلى": x.to||"",
+        "بواسطة": x.byName||"",
+        "تاريخ الإجراء": (toDate(x.ts) ? toDate(x.ts).toLocaleString("ar-EG") : "")
+      }));
+      renderTable(cols, rows);
+      return;
+    }
+
+    renderTable([""], []);
+  }
+
+  if(btnRun) btnRun.addEventListener("click", runReport);
+  if(btnExcel) btnExcel.addEventListener("click", exportExcel);
+  if(btnPdf) btnPdf.addEventListener("click", exportPdf);
+
+  AUTH.onAuthStateChanged(auth, async (user)=>{
+    if(!user){ location.href="index.html"; return; }
+
+    const snap = await FS.getDoc(FS.doc(db,"users",user.uid));
+    if(!snap.exists()){
+      await AUTH.signOut(auth);
+      location.href="index.html";
+      return;
+    }
+    const me = snap.data();
+    if(me.status !== "active"){
+      toast("الحساب قيد المراجعة أو موقوف.");
+      await AUTH.signOut(auth);
+      location.href="index.html";
+      return;
+    }
+
+    setWho(me);
+    window.__ME__ = { uid: user.uid, email: user.email, role: me.role, status: me.status, name: me.name };
+    repNote.textContent = "اختر نوع التقرير ثم اضغط تشغيل التقرير.";
+  });
+</script>
+
+
+<script type="module">
+  import { auth, db, AUTH, FS } from "./assets/firebase.js";
+  import { qs, esc, toast } from "./assets/ui.js";
+
+  const sRows = qs("sRows");
+  let all = [];
+  let selectedId = null;
+
+  function renderRows(list){
+    sRows.innerHTML = list.map(x=>`
+      <tr>
+        <td><b>${esc(x.number)}</b></td>
+        <td>${esc(x.date)}</td>
+        <td>${esc(x.subject)}</td>
+        <td>${esc(x.fromOrg)}</td>
+        <td>${esc(x.to)}</td>
+        <td><button class="btn btn-muted" data-open="${esc(x.id)}" type="button">عرض</button></td>
+      </tr>
+    `).join("");
+
+    document.querySelectorAll("[data-open]").forEach(b=>{
+      b.addEventListener("click", ()=>{
+        const id = b.getAttribute("data-open");
+        openDetails(id);
+      });
+    });
+  }
+
+  async function loadAll(){
+    const qy = FS.query(FS.collection(db,"incoming"), FS.orderBy("createdAt","desc"), FS.limit(200));
+    const snaps = await FS.getDocs(qy);
+    all = snaps.docs.map(d=>({id:d.id, ...d.data()}));
+    renderRows(all);
+  }
+
+  function applySearch(){
+    const n = (qs("sNumber").value||"").trim().toLowerCase();
+    const s = (qs("sSubject").value||"").trim().toLowerCase();
+    const f = (qs("sFrom").value||"").trim().toLowerCase();
+
+    const list = all.filter(x=>{
+      const okN = !n || (x.number||"").toString().toLowerCase().includes(n);
+      const okS = !s || (x.subject||"").toString().toLowerCase().includes(s);
+      const okF = !f || (x.fromOrg||"").toString().toLowerCase().includes(f);
+      return okN && okS && okF;
+    });
+    renderRows(list);
+  }
+
+  function tsToText(ts){
+    try{
+      if(!ts) return "";
+      if(typeof ts === "string") return ts;
+      if(ts.toDate) return ts.toDate().toLocaleString("ar-EG");
+      return "";
+    }catch{ return ""; }
+  }
+
+  async function openDetails(id){
+    selectedId = id;
+    const snap = await FS.getDoc(FS.doc(db,"incoming",id));
+    if(!snap.exists()){ toast("العنصر غير موجود"); return; }
+    const x = snap.data();
+
+    qs("detailsEmpty").style.display = "none";
+    qs("detailsBox").style.display = "";
+
+    qs("dNumber").textContent = "رقم الوارد: " + (x.number||"—");
+    qs("dDate").textContent = "تاريخ الورود: " + (x.date||"—");
+    qs("dFrom").textContent = "الجهة: " + (x.fromOrg||"—");
+
+    qs("dSubject").value = x.subject||"";
+    qs("dSender").value = x.sender||"";
+    qs("dTo").value = x.to||"";
+    qs("dNotes").value = x.notes||"";
+
+    const qy = FS.query(FS.collection(db,"incoming",id,"followups"), FS.orderBy("ts","desc"), FS.limit(100));
+    const snaps = await FS.getDocs(qy);
+    const list = snaps.docs.map(d=>({id:d.id, ...d.data()}));
+
+    qs("dFollowRows").innerHTML = list.map(a=>`
+      <tr>
+        <td>${esc(tsToText(a.ts))}</td>
+        <td><span class="badge blue">${esc(a.type||"")}</span></td>
+        <td>${esc(a.details||"")}</td>
+        <td>${esc(a.to||"")}</td>
+        <td>${esc(a.byName||"")}</td>
+      </tr>
+    `).join("");
+  }
+
+  qs("btnSearch").addEventListener("click", applySearch);
+  qs("btnClear").addEventListener("click", ()=>{
+    qs("sNumber").value=""; qs("sSubject").value=""; qs("sFrom").value="";
+    renderRows(all);
+  });
+
+  qs("btnOpenFollow").addEventListener("click", ()=>{
+    if(!selectedId) return;
+    sessionStorage.setItem("selectedIncomingId", selectedId);
+    location.href = "followup.html";
+  });
+
+  AUTH.onAuthStateChanged(auth, async (user)=>{
+    if(!user) return;
+    setTimeout(loadAll, 500);
+  });
+</script>
+
+
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+</body>
+</html>

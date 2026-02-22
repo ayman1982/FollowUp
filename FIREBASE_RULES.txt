@@ -1,0 +1,55 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function me() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function isActive() { return signedIn() && me().status == "active"; }
+    function isAdmin() { return isActive() && me().role == "admin"; }
+    function isFollowMgr() { return isActive() && me().role == "followup_manager"; }
+    function isAdminOrFollowMgr() { return isAdmin() || isFollowMgr(); }
+
+    match /users/{uid} {
+      allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      allow create: if signedIn() && request.auth.uid == uid;
+      allow update: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      allow delete: if isAdmin();
+    }
+
+    match /lookups/{docId} {
+      allow read: if isActive();
+      allow create, update: if isAdminOrFollowMgr();
+      allow delete: if isAdmin();
+    }
+
+    match /incoming/{docId} {
+      allow read: if isActive();
+      allow create: if isActive();
+
+      // منع فتح الوارد المغلق إلا بواسطة مدير النظام أو مدير المتابعة، وبحقول محددة فقط
+      allow update: if isAdmin()
+        || (isActive() && !(resource.data.isClosed == true && request.resource.data.isClosed != true))
+        || (isFollowMgr()
+            && resource.data.isClosed == true
+            && request.resource.data.isClosed == false
+            && request.resource.data.diff(resource.data).changedKeys()
+                .hasOnly(["isClosed","reopenedAt","reopenedByUid","reopenedByName"])
+           );
+
+      // الحذف مدير النظام فقط
+      allow delete: if isAdmin();
+
+      match /followups/{fid} {
+        allow read: if isActive();
+        allow create, update: if isActive();
+        allow delete: if isAdmin();
+      }
+    }
+
+    match /outgoing/{docId} {
+      allow read: if isActive();
+      allow create, update: if isActive();
+      allow delete: if isAdmin();
+    }
+  }
+}

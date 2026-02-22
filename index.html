@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>تسجيل الدخول - نظام متابعة الوارد والصادر</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800;900;1000&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css"/>
+</head>
+<body>
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="login-left">
+        <div class="brand login-brand">
+          <div class="logos">
+            <div class="logo"><img src="assets/logo.png" alt="شعار الوزارة"></div>
+            <div class="logo"><img src="assets/itrd-white.png" alt="شعار وحدة IT R&D"></div>
+          </div>
+          <div class="titles">
+            <h1>وزارة الاستثمار والتجارة الخارجية</h1>
+            <div class="sub">الادارة المركزية لشئون مكتب الوزير</div>
+            <div class="sub2">برنامج متابعة الوارد والصادر</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="login-right">
+        <h2 style="margin:0 0 10px; font-weight:1000;">تسجيل الدخول</h2>
+        <div id="msg"></div>
+
+        <div class="grid" style="margin-top:10px;">
+          <div class="field full">
+            <label>البريد الإلكتروني</label>
+            <input id="email" type="email" placeholder="name@domain.com" autocomplete="username">
+          </div>
+          <div class="field full">
+            <label>كلمة المرور</label>
+            <input id="password" type="password" placeholder="••••••••" autocomplete="current-password">
+          </div>
+        </div>
+
+        <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
+          <button class="btn btn-primary" id="btnLogin" type="button">دخول</button>
+          <a class="btn btn-secondary" href="register.html">تسجيل مستخدم جديد</a>
+        </div>
+
+        <div style="margin-top:10px; text-align:center;">
+          <a href="#" id="forgotPw" style="color:#0b3d91; text-decoration:underline; font-weight:700;">نسيت كلمة المرور؟</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script type="module">
+  import { applyClientGuards } from "./assets/ui.js";
+  applyClientGuards();
+
+  import { auth, db, AUTH, FS } from "./assets/firebase.js";
+
+  const msg = document.getElementById("msg");
+  const btn = document.getElementById("btnLogin");
+  const forgotPw = document.getElementById("forgotPw");
+
+  function explainAuthError(e){
+    const code = (e && e.code) ? e.code : "";
+    switch(code){
+      case "auth/user-not-found":
+        return "هذا البريد غير مسجل في نظام الدخول. استخدم (تسجيل مستخدم جديد) أو أنشئ المستخدم من Firebase Authentication.";
+      case "auth/wrong-password":
+        return "كلمة المرور غير صحيحة.";
+      case "auth/invalid-email":
+        return "صيغة البريد الإلكتروني غير صحيحة.";
+      case "auth/operation-not-allowed":
+        return "تسجيل الدخول بالبريد/كلمة المرور غير مُفعل في Firebase. فعّل Email/Password من Authentication → Sign-in method.";
+      case "auth/unauthorized-domain":
+        return "الدومين الحالي غير مُصرّح به في Firebase Authentication. أضف الدومين من Authentication → Settings → Authorized domains.";
+      case "auth/network-request-failed":
+        return "مشكلة اتصال بالشبكة. تأكد من الإنترنت وأن الخدمات غير محجوبة.";
+      case "auth/too-many-requests":
+        return "محاولات كثيرة جدًا. انتظر قليلًا ثم أعد المحاولة.";
+      case "auth/invalid-api-key":
+      case "auth/api-key-not-valid.-please-pass-a-valid-api-key.":
+        return "مفتاح API غير صحيح/غير مُصرح. راجع firebaseConfig في assets/firebase.js.";
+      default:
+        return "تعذر تسجيل الدخول. " + (code ? `(${code})` : "");
+    }
+  }
+
+  btn.addEventListener("click", async () => {
+    msg.innerHTML = "";
+    const email = document.getElementById("email").value.trim();
+    const pass = document.getElementById("password").value;
+
+    if(!email || !pass){
+      msg.innerHTML = '<div class="notice">يرجى إدخال البريد الإلكتروني وكلمة المرور.</div>';
+      return;
+    }
+
+    try{
+      const cred = await AUTH.signInWithEmailAndPassword(auth, email, pass);
+      const uid = cred.user.uid;
+
+      const usnap = await FS.getDoc(FS.doc(db, "users", uid));
+      if(!usnap.exists()){
+        msg.innerHTML = '<div class="notice">لا يوجد ملف مستخدم في Firestore. يرجى التواصل مع مدير النظام.</div>';
+        await AUTH.signOut(auth);
+        return;
+      }
+
+      const u = usnap.data();
+      if(u.status !== "active"){
+        msg.innerHTML = '<div class="notice">الحساب قيد المراجعة أو موقوف.</div>';
+        await AUTH.signOut(auth);
+        return;
+      }
+
+      location.href = (u.role === "admin") ? "admin.html" : "incoming.html";
+    }catch(e){
+      msg.innerHTML = `<div class="notice">${explainAuthError(e)}</div>`;
+      console.error(e);
+    }
+  });
+
+  // Reset password via email (no CLI)
+  forgotPw?.addEventListener("click", async (ev) => {
+    ev.preventDefault();
+    const email = document.getElementById("email").value.trim();
+    const target = email || prompt("أدخل البريد الإلكتروني لإرسال رابط إعادة تعيين كلمة المرور:");
+    if(!target) return;
+    try{
+      await AUTH.sendPasswordResetEmail(auth, target);
+      msg.innerHTML = '<div class="notice">تم إرسال رابط إعادة تعيين كلمة المرور إلى البريد الإلكتروني (إن كان مسجلًا).</div>';
+    }catch(e){
+      msg.innerHTML = `<div class="notice">تعذر إرسال رابط إعادة التعيين. ${explainAuthError(e)}</div>`;
+      console.error(e);
+    }
+  });
+</script>
+</body>
+</html>

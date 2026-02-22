@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>النسخة الاحتياطية</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800;900;1000&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css"/>
+</head>
+<body>
+<header class="topbar">
+    <div class="inner container">
+      <div class="brand">
+        <div class="logo"><img src="assets/logo.png" alt="شعار الوزارة"></div>
+        <div>
+          <h1>وزارة الاستثمار والتجارة الخارجية</h1>
+          <div class="sub">الادارة المركزية لشئون مكتب الوزير</div>
+          <div class="sub2">برنامج متابعة الصادر والوارد</div>
+        </div>
+      </div>
+      <div class="userbox">
+        <span id="whoName">—</span>
+        <span class="role" id="whoRole">—</span>
+        <button class="btn btn-secondary" id="btnLogout" type="button">تسجيل خروج</button>
+      </div>
+    </div>
+  </header>
+  <div class="container shell">
+<aside class="sidebar">
+      <div class="nav">
+        <a href="incoming.html">📥 الوارد</a>
+        <a href="lookups.html" id="lookupsLink">🏷️ الجهات (Lookups)</a>
+        <a href="followup.html">🧾 المتابعة</a>
+        <a href="search.html">🔎 البحث</a>
+        <a href="reports.html" id="reportsLink">📊 التقارير</a>
+        <a href="admin.html" class="active" id="adminLink" style="display:none">🛡️ إدارة المستخدمين</a>
+      </div>
+    </aside>
+    
+<main class="main">
+  <div class="card">
+    <div class="card-header">
+      <h2>النسخة الاحتياطية</h2>
+      <div class="actions">
+        <button class="btn" id="btnDownload" type="button">⬇️ إنشاء/تحميل نسخة احتياطية</button>
+        <label class="btn btn-secondary" for="fileRestore" style="cursor:pointer;">⬆️ استرجاع نسخة</label>
+        <input id="fileRestore" type="file" accept="application/json" style="display:none" />
+      </div>
+    </div>
+
+    <div class="note" style="margin-top:10px">
+      <b>ملاحظة:</b> هذه الشاشة متاحة لمدير النظام فقط. سيتم إنشاء ملف JSON يحتوي على كل بيانات قاعدة البيانات (الوارد + المتابعات + الصادر + الجهات + المستخدمين).
+      <br/>
+      عند الاسترجاع سيتم <b>مسح البيانات الحالية</b> ثم إعادة تحميل البيانات من النسخة الاحتياطية.
+    </div>
+
+    <div class="hr"></div>
+
+    <div class="grid-2" style="gap:12px">
+      <div class="card" style="background:#f8fafc">
+        <div style="font-weight:900; margin-bottom:6px;">حالة العملية</div>
+        <div id="statusBox" style="white-space:pre-line; font-family:system-ui; font-size:14px;">جاهز.</div>
+      </div>
+      <div class="card" style="background:#f8fafc">
+        <div style="font-weight:900; margin-bottom:6px;">خيارات</div>
+        <label style="display:flex; gap:8px; align-items:center;">
+          <input type="checkbox" id="chkIncludeUsers" checked />
+          تضمين بيانات المستخدمين (users)
+        </label>
+        <label style="display:flex; gap:8px; align-items:center; margin-top:8px;">
+          <input type="checkbox" id="chkIncludeLookups" checked />
+          تضمين بيانات الجهات (lookups)
+        </label>
+        <label style="display:flex; gap:8px; align-items:center; margin-top:8px;">
+          <input type="checkbox" id="chkIncludeOutgoing" checked />
+          تضمين بيانات الصادر (outgoing)
+        </label>
+        <label style="display:flex; gap:8px; align-items:center; margin-top:8px;">
+          <input type="checkbox" id="chkIncludeIncoming" checked />
+          تضمين بيانات الوارد والمتابعات (incoming + followups)
+        </label>
+      </div>
+    </div>
+  </div>
+</main>
+
+  </div>
+  <div class="footer">جميع الحقوق محفوظة 2026 - وحدة ابحاث وتطوير تكنولوجيا المعلومات</div>
+
+
+<script type="module">
+  import { auth, db, AUTH, FS } from "./assets/firebase.js";
+  import { qs, toast, setActiveNav } from "./assets/ui.js";
+
+  setActiveNav();
+
+  const logout = qs("btnLogout");
+  logout?.addEventListener("click", async ()=>{
+    await AUTH.signOut(auth);
+    location.href = "index.html";
+  });
+
+  const statusBox = qs("statusBox");
+  const btnDownload = qs("btnDownload");
+  const fileRestore = qs("fileRestore");
+
+  const chkIncludeUsers = qs("chkIncludeUsers");
+  const chkIncludeLookups = qs("chkIncludeLookups");
+  const chkIncludeOutgoing = qs("chkIncludeOutgoing");
+  const chkIncludeIncoming = qs("chkIncludeIncoming");
+
+  function log(msg){
+    statusBox.textContent = (statusBox.textContent ? statusBox.textContent + "\n" : "") + msg;
+  }
+
+  function nowISO(){
+    const d = new Date();
+    const pad=n=>String(n).padStart(2,"0");
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
+  }
+
+  function downloadText(fileName, text){
+    const blob = new Blob([text], {type:"application/json;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  }
+
+  async function getAllDocs(colName){
+    const snap = await FS.getDocs(FS.collection(db, colName));
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  }
+
+  async function getIncomingWithFollowups(){
+    const incomingSnap = await FS.getDocs(FS.collection(db,"incoming"));
+    const incoming = [];
+    for(const docu of incomingSnap.docs){
+      const data = docu.data();
+      const inId = docu.id;
+      const fuSnap = await FS.getDocs(FS.collection(db,"incoming",inId,"followups"));
+      const followups = fuSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      incoming.push({ id: inId, ...data, __followups: followups });
+    }
+    return incoming;
+  }
+
+  async function backup(){
+    statusBox.textContent = "";
+    log("بدء إنشاء النسخة الاحتياطية...");
+
+    const payload = {
+      meta: { createdAt: new Date().toISOString(), app: "MIFT FollowUp", version: "backup-v1" },
+      data: {}
+    };
+
+    if(chkIncludeUsers.checked){
+      log("تحميل users ...");
+      payload.data.users = await getAllDocs("users");
+      log(`تم تحميل users: ${payload.data.users.length}`);
+    }
+
+    if(chkIncludeLookups.checked){
+      log("تحميل lookups ...");
+      payload.data.lookups = await getAllDocs("lookups");
+      log(`تم تحميل lookups: ${payload.data.lookups.length}`);
+    }
+
+    if(chkIncludeOutgoing.checked){
+      log("تحميل outgoing ...");
+      payload.data.outgoing = await getAllDocs("outgoing");
+      log(`تم تحميل outgoing: ${payload.data.outgoing.length}`);
+    }
+
+    if(chkIncludeIncoming.checked){
+      log("تحميل incoming + followups ...");
+      payload.data.incoming = await getIncomingWithFollowups();
+      log(`تم تحميل incoming: ${payload.data.incoming.length}`);
+      let totalFU = 0;
+      for(const x of payload.data.incoming){ totalFU += (x.__followups||[]).length; }
+      log(`إجمالي المتابعات: ${totalFU}`);
+    }
+
+    const fileName = `backup_${nowISO()}.json`;
+    downloadText(fileName, JSON.stringify(payload));
+    log("تم إنشاء وتحميل النسخة الاحتياطية.");
+  }
+
+  async function deleteCollection(colRef){
+    const snap = await FS.getDocs(colRef);
+    for(const d of snap.docs){
+      await FS.deleteDoc(d.ref);
+    }
+  }
+
+  async function clearIncomingAndFollowups(){
+    const incomingSnap = await FS.getDocs(FS.collection(db,"incoming"));
+    for(const docu of incomingSnap.docs){
+      const fuRef = FS.collection(db,"incoming",docu.id,"followups");
+      await deleteCollection(fuRef);
+      await FS.deleteDoc(docu.ref);
+    }
+  }
+
+  async function restoreFrom(payload){
+    statusBox.textContent = "";
+    log("بدء استرجاع النسخة...");
+
+    if(!payload || !payload.data){
+      toast("ملف النسخة الاحتياطية غير صالح.");
+      return;
+    }
+
+    if(!confirm("سيتم مسح البيانات الحالية ثم استرجاع النسخة الاحتياطية. هل أنت متأكد؟")) return;
+
+    // 1) Clear existing data
+    try{
+      if(chkIncludeIncoming.checked){
+        log("مسح incoming + followups ...");
+        await clearIncomingAndFollowups();
+        log("تم مسح incoming + followups");
+      }
+
+      if(chkIncludeOutgoing.checked){
+        log("مسح outgoing ...");
+        await deleteCollection(FS.collection(db,"outgoing"));
+        log("تم مسح outgoing");
+      }
+
+      if(chkIncludeLookups.checked){
+        log("مسح lookups ...");
+        await deleteCollection(FS.collection(db,"lookups"));
+        log("تم مسح lookups");
+      }
+
+      if(chkIncludeUsers.checked){
+        log("مسح users ...");
+        await deleteCollection(FS.collection(db,"users"));
+        log("تم مسح users");
+      }
+    }catch(e){
+      toast("تعذر مسح البيانات الحالية. تحقق من الصلاحيات (Admin).");
+      return;
+    }
+
+    // 2) Write data back
+    try{
+      if(chkIncludeUsers.checked && payload.data.users){
+        log("استرجاع users ...");
+        for(const u of payload.data.users){
+          const id = u.id; const data = { ...u }; delete data.id;
+          await FS.setDoc(FS.doc(db,"users",id), data);
+        }
+        log("تم استرجاع users");
+      }
+
+      if(chkIncludeLookups.checked && payload.data.lookups){
+        log("استرجاع lookups ...");
+        for(const l of payload.data.lookups){
+          const id = l.id; const data = { ...l }; delete data.id;
+          await FS.setDoc(FS.doc(db,"lookups",id), data);
+        }
+        log("تم استرجاع lookups");
+      }
+
+      if(chkIncludeOutgoing.checked && payload.data.outgoing){
+        log("استرجاع outgoing ...");
+        for(const o of payload.data.outgoing){
+          const id = o.id; const data = { ...o }; delete data.id;
+          await FS.setDoc(FS.doc(db,"outgoing",id), data);
+        }
+        log("تم استرجاع outgoing");
+      }
+
+      if(chkIncludeIncoming.checked && payload.data.incoming){
+        log("استرجاع incoming + followups ...");
+        for(const inc of payload.data.incoming){
+          const id = inc.id;
+          const data = { ...inc };
+          const followups = data.__followups || [];
+          delete data.id;
+          delete data.__followups;
+
+          await FS.setDoc(FS.doc(db,"incoming",id), data);
+
+          for(const fu of followups){
+            const fuId = fu.id;
+            const fuData = { ...fu }; delete fuData.id;
+            await FS.setDoc(FS.doc(db,"incoming",id,"followups",fuId), fuData);
+          }
+        }
+        log("تم استرجاع incoming + followups");
+      }
+
+      toast("تم استرجاع النسخة الاحتياطية بنجاح.", true);
+      log("اكتمل الاسترجاع.");
+    }catch(e){
+      toast("حدث خطأ أثناء الاسترجاع. تحقق من الصلاحيات.");
+    }
+  }
+
+  AUTH.onAuthStateChanged(auth, async (user)=>{
+    if(!user){ location.href="index.html"; return; }
+
+    const snap = await FS.getDoc(FS.doc(db,"users",user.uid));
+    if(!snap.exists()){
+      await AUTH.signOut(auth);
+      location.href="index.html";
+      return;
+    }
+    const me = snap.data();
+    if(me.status !== "active"){
+      toast("الحساب قيد المراجعة أو موقوف.");
+      await AUTH.signOut(auth);
+      location.href="index.html";
+      return;
+    }
+
+    qs("whoName").textContent = me.name || me.email || "مستخدم";
+    qs("whoRole").textContent = (me.role==="admin") ? "مدير نظام" : (me.role==="followup_manager" ? "مدير المتابعة" : "مستخدم");
+
+    const adminLink = qs("adminLink");
+    if(adminLink) adminLink.style.display = (me.role==="admin") ? "" : "none";
+    const lookupsLink = qs("lookupsLink");
+    if(lookupsLink) lookupsLink.style.display = (me.role==="admin" || me.role==="followup_manager") ? "" : "none";
+    const backupLink = qs("backupLink");
+    if(backupLink) backupLink.style.display = (me.role==="admin") ? "" : "none";
+
+    window.__ME__ = { uid: user.uid, email: user.email, role: me.role, status: me.status, name: me.name };
+
+    // Admin only
+    if(me.role !== "admin"){
+      toast("هذه الشاشة متاحة لمدير النظام فقط.");
+      location.href="incoming.html";
+      return;
+    }
+
+    btnDownload.addEventListener("click", backup);
+    fileRestore.addEventListener("change", async (e)=>{
+      const f = e.target.files?.[0];
+      if(!f) return;
+      try{
+        const text = await f.text();
+        const payload = JSON.parse(text);
+        await restoreFrom(payload);
+      }catch(err){
+        toast("تعذر قراءة ملف النسخة الاحتياطية.");
+      }finally{
+        fileRestore.value = "";
+      }
+    });
+  });
+</script>
+
+
+
+<script type="module">
+  import { auth, db, AUTH, FS } from "./assets/firebase.js";
+  import { qs, esc, toast } from "./assets/ui.js";
+
+  const rows = qs("usersRows");
+  const btnReload = qs("btnReloadUsers");
+
+  function badgeRole(role){
+    return role==="admin" ? '<span class="badge blue">مدير نظام</span>' : '<span class="badge">مستخدم</span>';
+  }
+  function badgeStatus(s){
+    if(s==="active") return '<span class="badge green">مفعل</span>';
+    if(s==="pending") return '<span class="badge">معلّق</span>';
+    if(s==="disabled" || s==="blocked") return '<span class="badge red">موقوف</span>';
+    return '<span class="badge red">موقوف</span>';
+  }
+
+  async function loadUsers(){
+    rows.innerHTML = "";
+    let docs = [];
+    try{
+      const qy = FS.query(FS.collection(db,"users"), FS.orderBy("createdAt","desc"), FS.limit(200));
+      const snaps = await FS.getDocs(qy);
+      docs = snaps.docs;
+    }catch(e){
+      // Fallback if createdAt missing / index / rules
+      try{
+        const snaps2 = await FS.getDocs(FS.collection(db,"users"));
+        docs = snaps2.docs;
+      }catch(e2){
+        console.error(e2);
+        toast("تعذر تحميل المستخدمين (راجع Rules).");
+        return;
+      }
+    }
+
+    // sort client-side if needed
+    docs.sort((a,b)=>{
+      const da = a.data()?.createdAt?.toMillis ? a.data().createdAt.toMillis() : 0;
+      const dbb = b.data()?.createdAt?.toMillis ? b.data().createdAt.toMillis() : 0;
+      return dbb - da;
+    });
+
+    docs.forEach(s=>{
+      const u = s.data();
+      rows.insertAdjacentHTML("beforeend", `
+        <tr>
+          <td>${esc(u.name||"-")}</td>
+          <td>${esc(u.email||"-")}</td>
+          <td>${badgeRole(u.role||"user")}</td>
+          <td>${badgeStatus(u.status||"pending")}</td>
+          <td style="white-space:nowrap;">
+            <button class="btn btn-primary" data-act="approve" data-id="${s.id}" type="button">قبول</button>
+            <button class="btn btn-secondary" data-act="block" data-id="${s.id}" type="button">إيقاف</button>
+</td>
+        </tr>
+      `);
+    });
+
+    document.querySelectorAll("[data-act]").forEach(b=>{
+      b.addEventListener("click", async ()=>{
+        const id = b.getAttribute("data-id");
+        const act = b.getAttribute("data-act");
+        try{
+          await FS.updateDoc(FS.doc(db,"users",id), { status: act==="approve" ? "active" : "disabled" });
+          toast("تم تحديث الحالة.", true);
+          await loadUsers();
+        }catch(e){
+          toast("تعذر التحديث (راجع Rules).");
+        }
+      });
+    });
+  }
+
+  btnReload.addEventListener("click", loadUsers);
+
+  AUTH.onAuthStateChanged(auth, async (user)=>{
+    if(!user) return;
+
+
+    const meSnap = await FS.getDoc(FS.doc(db,"users",user.uid));
+    if(!meSnap.exists()){ location.href="index.html"; return; }
+    const me = meSnap.data();
+    if(me.role!=="admin" || me.status!=="active"){
+      toast("غير مصرح. سيتم تحويلك للوارد.");
+      location.href="incoming.html";
+      return;
+    }
+    await loadUsers();
+  });
+</script>
+
+</body>
+</html>
